@@ -1,0 +1,54 @@
+export class MenuScene {
+  constructor(game) {
+    this.game = game;
+    this.el   = null;
+  }
+
+  init() {
+    const { driver, car } = this.game.playerData;
+
+    const driverBadge = driver.name
+      ? `<div class="menu-driver-badge">
+           <div class="avatar-sm" style="background:${driver.avatarBg}">${driver.avatarIcon}</div>
+           <div>
+             <strong>${driver.name}</strong>
+             <div style="font-size:0.75rem;color:var(--muted);letter-spacing:1px">Driver · ${car.colorName}</div>
+           </div>
+         </div>`
+      : '';
+
+    this.el = document.createElement('div');
+    this.el.className = 'screen';
+    this.el.innerHTML = `
+      <div class="logo">FreeRace</div>
+      <div class="logo-sub">City Racing</div>
+
+      ${driverBadge}
+
+      <div class="menu-buttons">
+        <button class="btn btn-primary" id="btn-race">&#9654; Race</button>
+        <button class="btn btn-secondary" id="btn-driver">${driver.name ? '&#9998; Edit Driver' : '&#43; Create Driver'}</button>
+        <button class="btn btn-secondary" id="btn-garage">&#9881; Garage</button>
+      </div>
+    `;
+
+    document.getElementById('ui-root').appendChild(this.el);
+
+    this.el.querySelector('#btn-race').addEventListener('click', () => {
+      if (!this.game.playerData.driver.name) {
+        this.game.setState('driver');
+      } else {
+        this.game.setState('race');
+      }
+    });
+    this.el.querySelector('#btn-driver').addEventListener('click', () => this.game.setState('driver'));
+    this.el.querySelector('#btn-garage').addEventListener('click', () => this.game.setState('garage'));
+  }
+
+  update() {}
+
+  destroy() {
+    this.el?.remove();
+    this.el = null;
+  }
+}
