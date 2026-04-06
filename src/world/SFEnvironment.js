@@ -20,6 +20,8 @@ export class SFEnvironment {
   }
 
   _build() {
+    this._buildWaterAndBay();         // SF Bay underneath the bridge
+    this._buildGrassyValleys();       // green hills around city sections
     this._buildBridge();
     this._buildJungle(0.10, 0.20);   // descent jungle
     this._buildCity1();
@@ -27,6 +29,179 @@ export class SFEnvironment {
     this._buildCity2();
     this._buildRoundabout();
     this._buildClimb();
+  }
+
+  // ─────────────────────────────────────────────
+  // WATER & BAY (Golden Gate Strait + SF Bay)
+  // ─────────────────────────────────────────────
+  _buildWaterAndBay() {
+    // Canvas-based water texture with wave patterns
+    const wc = document.createElement('canvas');
+    wc.width = 512; wc.height = 512;
+    const ctx = wc.getContext('2d');
+
+    // Deep blue base
+    const grd = ctx.createLinearGradient(0, 0, 512, 512);
+    grd.addColorStop(0.0, '#0a2d4a');
+    grd.addColorStop(0.5, '#185c8a');
+    grd.addColorStop(1.0, '#0d3358');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, 512, 512);
+
+    // Sine-wave ripples
+    for (let y = 8; y < 512; y += 13) {
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.04})`;
+      ctx.lineWidth = 1 + Math.random();
+      for (let x = 0; x < 512; x++) {
+        const sy = y + Math.sin(x * 0.04 + y * 0.02) * 4;
+        x === 0 ? ctx.moveTo(x, sy) : ctx.lineTo(x, sy);
+      }
+      ctx.stroke();
+    }
+
+    // Scattered sparkle dots
+    for (let i = 0; i < 300; i++) {
+      ctx.beginPath();
+      ctx.arc(Math.random() * 512, Math.random() * 512, 0.5 + Math.random() * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.1})`;
+      ctx.fill();
+    }
+
+    const wTex = new THREE.CanvasTexture(wc);
+    wTex.wrapS = wTex.wrapT = THREE.RepeatWrapping;
+    wTex.repeat.set(7, 7);
+
+    const bayMat = new THREE.MeshLambertMaterial({
+      map: wTex, color: 0x1a4f78, transparent: true, opacity: 0.9,
+    });
+
+    // Main bay — wide plane under the bridge and extending east/west
+    const bay = new THREE.Mesh(new THREE.PlaneGeometry(1400, 750), bayMat);
+    bay.rotation.x = -Math.PI / 2;
+    bay.position.set(-80, -2.8, 150);
+    this.group.add(bay);
+
+    // Second layer: slightly darker, offset for depth illusion
+    const bay2 = new THREE.Mesh(
+      new THREE.PlaneGeometry(1200, 600),
+      new THREE.MeshLambertMaterial({ color: 0x0d3050, transparent: true, opacity: 0.55 })
+    );
+    bay2.rotation.x = -Math.PI / 2;
+    bay2.position.set(-80, -3.5, 150);
+    this.group.add(bay2);
+
+    // ── Marin Headlands — rolling green hills north of the bridge ──
+    const marinGreen = [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28];
+    const rng = new MiniRng(54321);
+    for (let i = 0; i < 12; i++) {
+      const r   = rng.range(35, 90);
+      const col = marinGreen[i % marinGreen.length];
+      const geo = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+      const mat = new THREE.MeshLambertMaterial({ color: col });
+      const hill = new THREE.Mesh(geo, mat);
+      hill.scale.set(rng.range(1.8, 3.5), rng.range(0.25, 0.55), rng.range(1.5, 2.8));
+      hill.position.set(rng.range(-550, 450), 0, rng.range(310, 500));
+      this.group.add(hill);
+    }
+
+    // Marin ground plane
+    const marinGeo = new THREE.PlaneGeometry(1200, 400);
+    const marinMat = new THREE.MeshLambertMaterial({ color: 0x3d7a2d });
+    const marin    = new THREE.Mesh(marinGeo, marinMat);
+    marin.rotation.x = -Math.PI / 2;
+    marin.position.set(0, 0.02, 430);
+    this.group.add(marin);
+
+    // A few trees on the Marin headlands
+    const tRng = new MiniRng(33333);
+    for (let i = 0; i < 18; i++) {
+      this._makeTree(
+        new THREE.Vector3(tRng.range(-500, 400), 0, tRng.range(320, 500)),
+        tRng
+      );
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // GRASSY VALLEYS (around city sections)
+  // ─────────────────────────────────────────────
+  _buildGrassyValleys() {
+    const hillCols = [0x4a8f38, 0x3d7a2d, 0x56a040, 0x3a7028, 0x4f9040];
+
+    // Helper: lay a flat grass plane
+    const grassPlane = (w, d, x, z, col) => {
+      const m = new THREE.Mesh(
+        new THREE.PlaneGeometry(w, d),
+        new THREE.MeshLambertMaterial({ color: col })
+      );
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, 0.02, z);
+      this.group.add(m);
+    };
+
+    // Helper: scatter rolling hills
+    const scatterHills = (seed, count, xMin, xMax, zMin, zMax) => {
+      const r = new MiniRng(seed);
+      for (let i = 0; i < count; i++) {
+        const radius = r.range(22, 60);
+        const geo    = new THREE.SphereGeometry(radius, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+        const mat    = new THREE.MeshLambertMaterial({ color: hillCols[i % hillCols.length] });
+        const hill   = new THREE.Mesh(geo, mat);
+        hill.scale.set(r.range(1.6, 3.2), r.range(0.22, 0.52), r.range(1.4, 2.6));
+        hill.position.set(r.range(xMin, xMax), 0, r.range(zMin, zMax));
+        this.group.add(hill);
+      }
+    };
+
+    // ── Around City 1 (z ≈ 370–390, x ≈ -270 to -600) ──
+    grassPlane(540, 280,  -420,  490, 0x3d7a2d); // north of city 1
+    grassPlane(500, 200,  -420,  290, 0x4a8f38); // south of city 1
+    grassPlane(250, 340,  -680,  390, 0x3a7028); // west end
+    scatterHills(88888, 10, -650, -150,  430, 570);
+    scatterHills(77700,  6, -620, -180,  250, 340);
+
+    // ── Around City 2 (z ≈ -250 to -280, x ≈ -420 to -15) ──
+    grassPlane(700, 280,  -220, -395, 0x3d7a2d); // south of city 2
+    grassPlane(620, 200,  -220, -175, 0x4a8835); // north of city 2
+    grassPlane(300, 300,  -600, -270, 0x3a7028); // far west side
+    scatterHills(11111,  9, -680,  -30, -400, -510);
+    scatterHills(22200,  6, -650,  -40, -150, -220);
+
+    // ── Turn 1 grassy corner ──
+    grassPlane(220, 220, -640, 290, 0x4a8835);
+
+    // ── Scattered small deciduous trees in valley areas ──
+    const tRng = new MiniRng(55555);
+    const valleyTreeSpots = [
+      // city 1 valley
+      ...Array.from({ length: 18 }, () => [tRng.range(-640, -170), tRng.range(430, 560)]),
+      // city 2 valley
+      ...Array.from({ length: 14 }, () => [tRng.range(-660, -30), tRng.range(-400, -500)]),
+    ];
+    valleyTreeSpots.forEach(([x, z]) => {
+      this._makeRoundTree(new THREE.Vector3(x, 0, z), tRng);
+    });
+  }
+
+  // Round deciduous tree for valley/grass areas
+  _makeRoundTree(pos, rng) {
+    const trunkH = rng.range(4, 9);
+    const trunk  = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.28, 0.45, trunkH, 5),
+      new THREE.MeshLambertMaterial({ color: 0x5c3d1e })
+    );
+    trunk.position.set(pos.x, trunkH / 2, pos.z);
+    this.group.add(trunk);
+
+    const canopyR = rng.range(3, 6);
+    const cols    = [0x3a7a28, 0x4a8c35, 0x2e6320, 0x58a040, 0x4d9438];
+    const canopy  = new THREE.Mesh(
+      new THREE.SphereGeometry(canopyR, 7, 5),
+      new THREE.MeshLambertMaterial({ color: cols[Math.floor(rng.rand() * cols.length)] })
+    );
+    canopy.position.set(pos.x, trunkH + canopyR * 0.65, pos.z);
+    this.group.add(canopy);
   }
 
   // ─────────────────────────────────────────────
