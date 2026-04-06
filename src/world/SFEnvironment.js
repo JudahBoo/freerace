@@ -97,13 +97,13 @@ export class SFEnvironment {
     const marinGreen = [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28];
     const rng = new MiniRng(54321);
     for (let i = 0; i < 12; i++) {
-      const r   = rng.range(20, 45);   // capped radius
+      const r   = rng.range(8, 14);    // small radius — keeps footprint well clear of descent
       const col = marinGreen[i % marinGreen.length];
       const geo = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
       const mat = new THREE.MeshLambertMaterial({ color: col });
       const hill = new THREE.Mesh(geo, mat);
-      hill.scale.set(rng.range(1.5, 2.5), rng.range(0.25, 0.50), rng.range(1.2, 2.2));
-      hill.position.set(rng.range(-500, 400), 0, rng.range(330, 480));  // z >= 330
+      hill.scale.set(rng.range(1.0, 1.5), rng.range(0.25, 0.50), rng.range(1.0, 1.5));
+      hill.position.set(rng.range(-500, 400), 0, rng.range(460, 620));  // z >= 460 (descent ends at z=390)
       this.group.add(hill);
     }
 
@@ -119,7 +119,7 @@ export class SFEnvironment {
     const tRng = new MiniRng(33333);
     for (let i = 0; i < 18; i++) {
       this._makeTree(
-        new THREE.Vector3(tRng.range(-500, 400), 0, tRng.range(320, 500)),
+        new THREE.Vector3(tRng.range(-500, 400), 0, tRng.range(470, 620)),
         tRng
       );
     }
@@ -162,8 +162,8 @@ export class SFEnvironment {
     grassPlane(420, 100, -430, 480, 0x3d7a2d);
     // South strip: z = 200–330, safe clearance ≥ 38 units
     grassPlane(400,  90, -420, 265, 0x4a8f38);
-    // Hills strictly north of city 1
-    scatterHills(88888, 8, -620, -170, 440, 530);
+    // Hills strictly north of city 1 — zMin=500 so max footprint (28*2.0=56) can't reach z=390
+    scatterHills(88888, 8, -620, -170, 500, 580);
 
     // ── City 2 (track at z ≈ -248 to -308) ──
     // South strip: z = -345 to -460, safe clearance ≥ 37 units
