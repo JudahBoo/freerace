@@ -1,40 +1,48 @@
 import * as THREE from 'three';
-import { Input }       from './Input.js';
-import { MenuScene }   from './scenes/MenuScene.js';
-import { DriverScene } from './scenes/DriverScene.js';
-import { GarageScene } from './scenes/GarageScene.js';
-import { RaceScene }   from './scenes/RaceScene.js';
+import { Input }        from './Input.js';
+import { MenuScene }    from './scenes/MenuScene.js';
+import { DriverScene }  from './scenes/DriverScene.js';
+import { GarageScene }  from './scenes/GarageScene.js';
+import { RaceScene }    from './scenes/RaceScene.js';
+import { ResultsScene } from './scenes/ResultsScene.js';
+import { MarketScene }  from './scenes/MarketScene.js';
 
 const SCENES = {
-  menu:   MenuScene,
-  driver: DriverScene,
-  garage: GarageScene,
-  race:   RaceScene,
+  menu:    MenuScene,
+  driver:  DriverScene,
+  garage:  GarageScene,
+  race:    RaceScene,
+  results: ResultsScene,
+  market:  MarketScene,
 };
 
 export class Game {
   constructor() {
     this.input  = new Input();
-    this._scene = null;       // current scene instance
+    this._scene = null;
     this._state = null;
     this._last  = 0;
 
-    // Shared player data — designed to extend to multiplayer (array of drivers/cars)
     this.playerData = {
       driver: {
-        name:       '',
-        avatarIcon: '👤',
-        avatarBg:   '#1a1a2e',
-        avatarLabel:'Ghost',
+        name:        '',
+        avatarIcon:  '👤',
+        avatarBg:    '#1a1a2e',
+        avatarLabel: 'Ghost',
       },
       car: {
         color:     0xe63946,
         colorName: 'Crimson Red',
         colorHex:  '#e63946',
       },
+      tokens:       500,
+      garage:       ['crimson'],
+      activeCar:    'crimson',
+      lastRaceTime: 0,
+      lastPrize:    null,
+      raceResult:   'finished', // 'finished' | 'dnf'
     };
 
-    // Three.js renderer (shared, only renders during race)
     this.renderer = new THREE.WebGLRenderer({
       canvas:    document.getElementById('game-canvas'),
       antialias: true,
@@ -55,12 +63,10 @@ export class Game {
   setState(name) {
     if (this._state === name) return;
 
-    // Tear down old scene
     this._scene?.destroy();
     this._scene = null;
     this._state = name;
 
-    // Spin up new scene
     const SceneClass = SCENES[name];
     if (!SceneClass) {
       console.error(`Unknown scene: ${name}`);
@@ -72,7 +78,7 @@ export class Game {
 
   _loop(now) {
     requestAnimationFrame((t) => this._loop(t));
-    const dt = Math.min((now - this._last) / 1000, 0.05); // clamp dt to 50ms
+    const dt = Math.min((now - this._last) / 1000, 0.05);
     this._last = now;
 
     if (this._scene) {

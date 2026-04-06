@@ -25,10 +25,13 @@ export class MenuScene {
 
       ${driverBadge}
 
+      <div style="color:var(--muted);font-size:0.8rem;letter-spacing:2px;margin-bottom:8px;">🪙 ${this.game.playerData.tokens} tokens</div>
+
       <div class="menu-buttons">
         <button class="btn btn-primary" id="btn-race">&#9654; Race</button>
         <button class="btn btn-secondary" id="btn-driver">${driver.name ? '&#9998; Edit Driver' : '&#43; Create Driver'}</button>
         <button class="btn btn-secondary" id="btn-garage">&#9881; Garage</button>
+        <button class="btn btn-secondary" id="btn-market">🏪 Market</button>
       </div>
     `;
 
@@ -43,6 +46,7 @@ export class MenuScene {
     });
     this.el.querySelector('#btn-driver').addEventListener('click', () => this.game.setState('driver'));
     this.el.querySelector('#btn-garage').addEventListener('click', () => this.game.setState('garage'));
+    this.el.querySelector('#btn-market').addEventListener('click', () => this.game.setState('market'));
   }
 
   update() {}

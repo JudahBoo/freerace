@@ -415,3 +415,212 @@ html, body {
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--dark2); }
 ::-webkit-scrollbar-thumb { background: var(--dark3); border-radius: 2px; }
+
+/* ── RESULTS SCREEN ── */
+.results-time {
+  font-size: 3.5rem;
+  font-weight: 900;
+  color: var(--neon);
+  text-shadow: 0 0 24px rgba(0,245,212,0.6);
+  letter-spacing: 2px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.wheel-container {
+  position: relative;
+  display: inline-block;
+}
+.wheel-pointer {
+  position: absolute;
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.8rem;
+  color: var(--neon);
+  filter: drop-shadow(0 0 8px var(--neon));
+  z-index: 10;
+}
+.wheel-canvas {
+  border-radius: 50%;
+  border: 3px solid var(--neon);
+  box-shadow: 0 0 30px rgba(0,245,212,0.4);
+  cursor: pointer;
+  display: block;
+}
+.prize-reveal {
+  position: fixed;
+  bottom: -200px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--dark2);
+  border: 2px solid var(--neon);
+  border-radius: 12px;
+  padding: 32px 48px;
+  text-align: center;
+  min-width: 320px;
+  transition: bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 100;
+}
+.prize-reveal.show { bottom: 80px; }
+.prize-label {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--neon);
+}
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 32px;
+  width: 500px;
+  max-width: 95vw;
+}
+
+/* ── MARKET ── */
+.market-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+.token-balance {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #f5a623;
+}
+.car-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: 4px;
+}
+@media (max-width: 700px) {
+  .car-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.car-card {
+  background: var(--dark3);
+  border: 1.5px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s;
+}
+.car-card:hover {
+  border-color: rgba(0,245,212,0.3);
+  transform: translateY(-2px);
+}
+.car-card.owned { border-color: rgba(0,245,212,0.4); }
+.car-color-preview {
+  width: 100%;
+  height: 60px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+}
+.car-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+.tier-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+.stat-bar-row {
+  margin-bottom: 4px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.stat-bar {
+  height: 4px;
+  background: var(--dark);
+  border-radius: 2px;
+  margin-top: 2px;
+}
+.stat-bar-fill {
+  height: 100%;
+  background: var(--neon);
+  border-radius: 2px;
+}
+.car-price {
+  font-size: 0.85rem;
+  color: #f5a623;
+  font-weight: 700;
+  margin: 8px 0;
+}
+.btn-buy {
+  width: 100%;
+  padding: 8px;
+  font-size: 0.75rem;
+}
+
+/* ── GARAGE UPDATES ── */
+.garage-car-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+.garage-car-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--dark3);
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.garage-car-item:hover { border-color: rgba(0,245,212,0.3); }
+.garage-car-item.active {
+  border-color: var(--neon);
+  background: rgba(0,245,212,0.06);
+}
+.garage-car-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+/* ── HUD ADDITIONS ── */
+.hud-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+}
+.hud-progress-fill {
+  height: 100%;
+  background: var(--neon);
+  transition: width 0.3s;
+  box-shadow: 0 0 8px var(--neon);
+}
+.hud-timer {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(0,0,0,0.8);
+  background: rgba(0,0,0,0.4);
+  padding: 4px 16px;
+  border-radius: 20px;
+  white-space: nowrap;
+}

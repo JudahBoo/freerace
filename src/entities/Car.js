@@ -1,24 +1,25 @@
 import * as THREE from 'three';
 
-const MAX_SPEED    = 55;   // units/sec forward
 const MAX_REVERSE  = 18;
-const ACCEL        = 38;
 const BRAKE_FORCE  = 70;
-const DRAG         = 0.96; // velocity multiplier per frame (applied as speed *= DRAG^dt)
-const TURN_SPEED   = 2.2;  // radians/sec (scales with speed)
-const WHEEL_SPIN   = 4;    // visual spin multiplier
+const DRAG         = 0.96;
+const TURN_SPEED   = 2.2;
+const WHEEL_SPIN   = 4;
 
 export class Car {
-  constructor(scene, color = 0xe63946) {
+  constructor(scene, color = 0xe63946, opts = {}) {
     this.scene = scene;
     this.color = color;
 
+    // Configurable stats from opts
+    this.maxSpeed = opts?.maxSpeed ?? 55;
+    this.accel    = opts?.accel    ?? 38;
+
     // Physics state
     this.speed = 0;
-    this.angle = 0;      // Y-axis rotation (radians)
+    this.angle = 0;
     this.position = new THREE.Vector3(0, 0, 0);
 
-    // Wheel meshes for animation
     this._wheelMeshes = [];
     this._frontWheels = [];
 
@@ -44,7 +45,6 @@ export class Car {
     body.position.set(0, 0.65, 0);
     group.add(body);
 
-    // Body sides (slightly narrower accent)
     const sideMat = new THREE.MeshLambertMaterial({ color: this._darken(color, 0.7) });
     const sideGeo = new THREE.BoxGeometry(0.05, 0.45, 3.6);
     [-1.0, 1.0].forEach(x => {
@@ -66,14 +66,12 @@ export class Car {
     ws.rotation.x = 0.35;
     group.add(ws);
 
-    // Rear window
     const rwGeo = new THREE.BoxGeometry(1.35, 0.46, 0.08);
     const rw = new THREE.Mesh(rwGeo, glassMat);
     rw.position.set(0, 1.45, -1.12);
     rw.rotation.x = -0.35;
     group.add(rw);
 
-    // Side windows
     const swGeo = new THREE.BoxGeometry(0.06, 0.42, 1.4);
     [-0.76, 0.76].forEach(x => {
       const sw = new THREE.Mesh(swGeo, glassMat);
@@ -96,8 +94,6 @@ export class Car {
       const hl = new THREE.Mesh(hlGeo, hlMat);
       hl.position.set(x, 0.7, 2.06);
       group.add(hl);
-
-      // Headlight beam point light
       const light = new THREE.PointLight(0xffffaa, 0.8, 12);
       light.position.set(x, 0.7, 2.8);
       group.add(light);
@@ -114,7 +110,6 @@ export class Car {
     const wheelGeo = new THREE.CylinderGeometry(0.34, 0.34, 0.22, 14);
     const hubGeo   = new THREE.CylinderGeometry(0.18, 0.18, 0.24, 8);
 
-    // [x, z, isFront]
     const wheelDefs = [
       [-1.07, 1.25, true ],
       [ 1.07, 1.25, true ],
@@ -136,7 +131,7 @@ export class Car {
       group.add(hub);
     });
 
-    // ── Ground shadow plane (cheap shadow) ──
+    // ── Ground shadow plane ──
     const shadowGeo = new THREE.PlaneGeometry(2.4, 4.8);
     const shadowMat = new THREE.MeshBasicMaterial({
       color: 0x000000, transparent: true, opacity: 0.35, depthWrite: false,
@@ -157,24 +152,6 @@ export class Car {
 
   setColor(color) {
     this.color = color;
-    this.mesh.traverse(child => {
-      if (child.isMesh && child.material?.color) {
-        const mat = child.material;
-        // Only recolor primary body parts (not glass, wheels, lights)
-        if (
-          mat !== child.material.isGlass &&
-          !mat.emissive?.r &&
-          mat.color.getHex() !== 0x111111 &&
-          mat.color.getHex() !== 0xcccccc &&
-          mat.color.getHex() !== 0x222222 &&
-          mat.color.getHex() !== 0x88aacc &&
-          mat.color.getHex() !== 0x000000
-        ) {
-          // Recheck — only color the body parts
-        }
-      }
-    });
-    // Rebuild mesh with new color
     this.scene.remove(this.mesh);
     this.mesh = this._buildMesh(color);
     this.mesh.position.copy(this.position);
@@ -182,7 +159,6 @@ export class Car {
     this.scene.add(this.mesh);
   }
 
-  /** Place car at specific world position + heading */
   place(x, y, z, angle = 0) {
     this.position.set(x, y, z);
     this.angle = angle;
@@ -192,30 +168,29 @@ export class Car {
   }
 
   update(input, dt) {
-    const fwd  = input.isDown('ArrowUp')   || input.isDown('KeyW');
-    const back = input.isDown('ArrowDown') || input.isDown('KeyS');
-    const left = input.isDown('ArrowLeft') || input.isDown('KeyA');
-    const right= input.isDown('ArrowRight')|| input.isDown('KeyD');
+    const fwd  = input.isDown('ArrowUp')    || input.isDown('KeyW');
+    const back = input.isDown('ArrowDown')  || input.isDown('KeyS');
+    const left = input.isDown('ArrowLeft')  || input.isDown('KeyA');
+    const right= input.isDown('ArrowRight') || input.isDown('KeyD');
     const brake= input.isDown('Space');
 
     // ── Speed ──
     if (fwd) {
-      this.speed = Math.min(this.speed + ACCEL * dt, MAX_SPEED);
+      this.speed = Math.min(this.speed + this.accel * dt, this.maxSpeed);
     } else if (back) {
-      this.speed = Math.max(this.speed - ACCEL * dt, -MAX_REVERSE);
+      this.speed = Math.max(this.speed - this.accel * dt, -MAX_REVERSE);
     } else if (brake) {
       const dir = Math.sign(this.speed);
       this.speed -= dir * BRAKE_FORCE * dt;
       if (Math.abs(this.speed) < 0.5) this.speed = 0;
     } else {
-      // Natural drag
       this.speed *= Math.pow(DRAG, dt * 60);
       if (Math.abs(this.speed) < 0.2) this.speed = 0;
     }
 
-    // ── Steering (speed-scaled turn radius) ──
+    // ── Steering ──
     if (Math.abs(this.speed) > 0.5) {
-      const speedFactor = Math.min(Math.abs(this.speed) / MAX_SPEED, 1);
+      const speedFactor = Math.min(Math.abs(this.speed) / this.maxSpeed, 1);
       const steerAmt = TURN_SPEED * speedFactor * dt * Math.sign(this.speed);
       if (left)  this.angle += steerAmt;
       if (right) this.angle -= steerAmt;
@@ -239,7 +214,6 @@ export class Car {
     });
   }
 
-  /** Speed in km/h for HUD */
   get kmh() { return Math.abs(Math.round(this.speed * 3.6)); }
 
   destroy() {
