@@ -312,64 +312,44 @@ export class SFEnvironment {
 
   // ─────────────────────────────────────────────
   // JUNGLE
+  // Trees start >= 18 units from track center so they never enter the
+  // camera's view of the road. Canopy-over-road spheres removed entirely.
   // ─────────────────────────────────────────────
   _buildJungle(tStart, tEnd) {
-    const step = 0.002;
+    const step = 0.006;   // sample less frequently → far fewer objects
     const rng  = new MiniRng(tStart * 10000);
 
     for (let t = tStart; t < tEnd; t += step) {
-      const pt  = this.curve.getPointAt(t);
-      const tan = this.curve.getTangentAt(t);
+      const pt   = this.curve.getPointAt(t);
+      const tan  = this.curve.getTangentAt(t);
       const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
 
-      // Trees on both sides
       [-1, 1].forEach(side => {
-        const count = rng.intRange(3, 5);
+        // 1–2 trees per side, starting well outside shoulder (18 units min)
+        const count = rng.intRange(1, 2);
         for (let k = 0; k < count; k++) {
-          const offset = rng.range(9, 30) * side;
-          const pos = pt.clone().addScaledVector(perp, offset);
-          pos.y = 0; // ground level
+          const offset = rng.range(18, 38) * side;
+          const pos    = pt.clone().addScaledVector(perp, offset);
+          pos.y = 0;
+          rng.rand() < 0.20 ? this._makePalm(pos, rng) : this._makeTree(pos, rng);
+        }
 
-          const isPalm = rng.rand() < 0.20;
-          if (isPalm) {
-            this._makePalm(pos, rng);
-          } else {
-            this._makeTree(pos, rng);
-          }
-
-          // Bushes/ferns
-          if (rng.rand() < 0.4) {
-            const bushOffset = rng.range(8, 25) * side;
-            const bushPos = pt.clone().addScaledVector(perp, bushOffset);
-            bushPos.y = 0;
-            const r = rng.range(1, 3);
-            const bushGeo = new THREE.SphereGeometry(r, 6, 4);
-            const bushMat = new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) });
-            const bush = new THREE.Mesh(bushGeo, bushMat);
-            bush.position.set(bushPos.x, r * 0.5, bushPos.z);
-            this.group.add(bush);
-          }
+        // Occasional bush — also kept clear of road (15 units min)
+        if (rng.rand() < 0.35) {
+          const bushOffset = rng.range(15, 32) * side;
+          const bushPos    = pt.clone().addScaledVector(perp, bushOffset);
+          bushPos.y = 0;
+          const r = rng.range(1, 2.5);
+          const bush = new THREE.Mesh(
+            new THREE.SphereGeometry(r, 6, 4),
+            new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) })
+          );
+          bush.position.set(bushPos.x, r * 0.5, bushPos.z);
+          this.group.add(bush);
         }
       });
     }
-
-    // Canopy over road every ~0.005 T
-    const canopyStep = 0.005;
-    const canopyRng  = new MiniRng(tStart * 9999 + 42);
-    for (let t = tStart + canopyStep; t < tEnd - canopyStep; t += canopyStep) {
-      const pt = this.curve.getPointAt(t);
-      const r  = canopyRng.range(12, 18);
-      const cy = canopyRng.range(18, 25);
-      const canopyGeo = new THREE.SphereGeometry(r, 8, 6);
-      const canopyMat = new THREE.MeshLambertMaterial({
-        color: pick(TREE_GREENS),
-        transparent: true,
-        opacity: canopyRng.range(0.7, 0.9),
-      });
-      const canopy = new THREE.Mesh(canopyGeo, canopyMat);
-      canopy.position.set(pt.x, cy, pt.z);
-      this.group.add(canopy);
-    }
+    // No overhead canopy spheres — they blocked the road view
   }
 
   _makeTree(pos, rng) {
@@ -435,7 +415,7 @@ export class SFEnvironment {
         if (rng.rand() < 0.15) continue; // empty lot
 
         [-1, 1].forEach(side => {
-          const offset = (13 + rng.range(0, 2)) * side;
+          const offset = (16 + rng.range(0, 3)) * side;
           const bPos   = pt.clone().addScaledVector(perp, offset);
           bPos.y = 0;
           const angle  = Math.atan2(tan.x, tan.z);
@@ -561,7 +541,7 @@ export class SFEnvironment {
         if (rng.rand() < 0.15) continue;
 
         [-1, 1].forEach(side => {
-          const offset = (13 + rng.range(0, 2)) * side;
+          const offset = (16 + rng.range(0, 3)) * side;
           const bPos   = pt.clone().addScaledVector(perp, offset);
           bPos.y = 0;
           const angle  = Math.atan2(tan.x, tan.z);
