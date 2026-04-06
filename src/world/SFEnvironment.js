@@ -92,16 +92,18 @@ export class SFEnvironment {
     this.group.add(bay2);
 
     // ── Marin Headlands — rolling green hills north of the bridge ──
+    // Bridge ends at z=240; keep hills at z >= 320 with capped radius
+    // so they never reach back toward the bridge deck.
     const marinGreen = [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28];
     const rng = new MiniRng(54321);
     for (let i = 0; i < 12; i++) {
-      const r   = rng.range(35, 90);
+      const r   = rng.range(20, 45);   // capped radius
       const col = marinGreen[i % marinGreen.length];
       const geo = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
       const mat = new THREE.MeshLambertMaterial({ color: col });
       const hill = new THREE.Mesh(geo, mat);
-      hill.scale.set(rng.range(1.8, 3.5), rng.range(0.25, 0.55), rng.range(1.5, 2.8));
-      hill.position.set(rng.range(-550, 450), 0, rng.range(310, 500));
+      hill.scale.set(rng.range(1.5, 2.5), rng.range(0.25, 0.50), rng.range(1.2, 2.2));
+      hill.position.set(rng.range(-500, 400), 0, rng.range(330, 480));  // z >= 330
       this.group.add(hill);
     }
 
@@ -125,63 +127,59 @@ export class SFEnvironment {
 
   // ─────────────────────────────────────────────
   // GRASSY VALLEYS (around city sections)
+  // Grass stays >= 40 units from track center to avoid covering the road.
+  // City 1 track: z ≈ 368–390  City 2 track: z ≈ -248 to -308
   // ─────────────────────────────────────────────
   _buildGrassyValleys() {
     const hillCols = [0x4a8f38, 0x3d7a2d, 0x56a040, 0x3a7028, 0x4f9040];
 
-    // Helper: lay a flat grass plane
     const grassPlane = (w, d, x, z, col) => {
       const m = new THREE.Mesh(
         new THREE.PlaneGeometry(w, d),
         new THREE.MeshLambertMaterial({ color: col })
       );
       m.rotation.x = -Math.PI / 2;
-      m.position.set(x, 0.02, z);
+      m.position.set(x, 0.01, z);
       this.group.add(m);
     };
 
-    // Helper: scatter rolling hills
+    // Hills: small radius, low Y-scale, positioned well away from track
     const scatterHills = (seed, count, xMin, xMax, zMin, zMax) => {
       const r = new MiniRng(seed);
       for (let i = 0; i < count; i++) {
-        const radius = r.range(22, 60);
-        const geo    = new THREE.SphereGeometry(radius, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+        const radius = r.range(14, 28);   // small enough not to intrude
+        const geo    = new THREE.SphereGeometry(radius, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2);
         const mat    = new THREE.MeshLambertMaterial({ color: hillCols[i % hillCols.length] });
         const hill   = new THREE.Mesh(geo, mat);
-        hill.scale.set(r.range(1.6, 3.2), r.range(0.22, 0.52), r.range(1.4, 2.6));
+        hill.scale.set(r.range(1.4, 2.2), r.range(0.18, 0.38), r.range(1.2, 2.0));
         hill.position.set(r.range(xMin, xMax), 0, r.range(zMin, zMax));
         this.group.add(hill);
       }
     };
 
-    // ── Around City 1 (z ≈ 370–390, x ≈ -270 to -600) ──
-    grassPlane(540, 280,  -420,  490, 0x3d7a2d); // north of city 1
-    grassPlane(500, 200,  -420,  290, 0x4a8f38); // south of city 1
-    grassPlane(250, 340,  -680,  390, 0x3a7028); // west end
-    scatterHills(88888, 10, -650, -150,  430, 570);
-    scatterHills(77700,  6, -620, -180,  250, 340);
+    // ── City 1 (track at z ≈ 368–390) ──
+    // North strip: z = 430–530, safe clearance ≥ 40 units from track edge
+    grassPlane(420, 100, -430, 480, 0x3d7a2d);
+    // South strip: z = 200–330, safe clearance ≥ 38 units
+    grassPlane(400,  90, -420, 265, 0x4a8f38);
+    // Hills strictly north of city 1
+    scatterHills(88888, 8, -620, -170, 440, 530);
 
-    // ── Around City 2 (z ≈ -250 to -280, x ≈ -420 to -15) ──
-    grassPlane(700, 280,  -220, -395, 0x3d7a2d); // south of city 2
-    grassPlane(620, 200,  -220, -175, 0x4a8835); // north of city 2
-    grassPlane(300, 300,  -600, -270, 0x3a7028); // far west side
-    scatterHills(11111,  9, -680,  -30, -400, -510);
-    scatterHills(22200,  6, -650,  -40, -150, -220);
+    // ── City 2 (track at z ≈ -248 to -308) ──
+    // South strip: z = -345 to -460, safe clearance ≥ 37 units
+    grassPlane(500, 115, -210, -402, 0x3d7a2d);
+    // North strip: z = -130 to -205, safe clearance ≥ 43 units
+    grassPlane(480,  75, -210, -167, 0x4a8835);
+    // Hills strictly south of city 2
+    scatterHills(11111, 7, -620, -40, -345, -460);
 
-    // ── Turn 1 grassy corner ──
-    grassPlane(220, 220, -640, 290, 0x4a8835);
-
-    // ── Scattered small deciduous trees in valley areas ──
+    // ── Scattered small deciduous trees on the valley floors ──
     const tRng = new MiniRng(55555);
-    const valleyTreeSpots = [
-      // city 1 valley
-      ...Array.from({ length: 18 }, () => [tRng.range(-640, -170), tRng.range(430, 560)]),
-      // city 2 valley
-      ...Array.from({ length: 14 }, () => [tRng.range(-660, -30), tRng.range(-400, -500)]),
+    const spots = [
+      ...Array.from({ length: 14 }, () => [tRng.range(-620, -160), tRng.range(445, 525)]),
+      ...Array.from({ length: 11 }, () => [tRng.range(-600, -40),  tRng.range(-350, -450)]),
     ];
-    valleyTreeSpots.forEach(([x, z]) => {
-      this._makeRoundTree(new THREE.Vector3(x, 0, z), tRng);
-    });
+    spots.forEach(([x, z]) => this._makeRoundTree(new THREE.Vector3(x, 0, z), tRng));
   }
 
   // Round deciduous tree for valley/grass areas
