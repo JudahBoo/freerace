@@ -1,8 +1,10 @@
 import * as THREE from 'three';
-import { Car }          from '../entities/Car.js';
-import { Track }        from '../world/Track.js';
-import { SFEnvironment }from '../world/SFEnvironment.js';
-import { CAR_DEFS }     from '../data/cars.js';
+import { Car }            from '../entities/Car.js';
+import { Track }          from '../world/Track.js';
+import { SFEnvironment }  from '../world/SFEnvironment.js';
+import { NYTrack }        from '../world/NYTrack.js';
+import { NYEnvironment }  from '../world/NYEnvironment.js';
+import { CAR_DEFS }       from '../data/cars.js';
 
 export class RaceScene {
   constructor(game) {
@@ -44,7 +46,9 @@ export class RaceScene {
   // FAR_OFF: clearly off track — penalty + reset
   static get SLIGHT_OFF_DIST() { return 14; }
   static get FAR_OFF_DIST()    { return 24; }
-  static get RACE_TIMEOUT()    { return 300; } // 5 minutes
+  get RACE_TIMEOUT() {
+    return this._mapId === 'ny' ? 420 : 300; // 7 min for NY, 5 min for SF
+  }
 
   init() {
     this._buildScene();
@@ -61,6 +65,8 @@ export class RaceScene {
   }
 
   _buildScene() {
+    this._mapId = this.game.playerData.selectedMap || 'sf';
+
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x87ceeb); // daytime sky
     this.scene.fog = new THREE.Fog(0x87ceeb, 200, 700);
@@ -91,9 +97,14 @@ export class RaceScene {
 
     this._buildStars();
 
-    // Track & environment
-    this.track = new Track(this.scene);
-    this.env   = new SFEnvironment(this.scene, this.track);
+    // Track & environment — selected by map
+    if (this._mapId === 'ny') {
+      this.track = new NYTrack(this.scene);
+      this.env   = new NYEnvironment(this.scene, this.track);
+    } else {
+      this.track = new Track(this.scene);
+      this.env   = new SFEnvironment(this.scene, this.track);
+    }
 
     // Car — look up active car def
     const pd        = this.game.playerData;
@@ -190,7 +201,7 @@ export class RaceScene {
           TIME'S UP
         </div>
         <div style="font-size:1rem; letter-spacing:3px; color:var(--muted); text-transform:uppercase;">
-          No prize awarded
+          No prize awarded — ${Math.floor(this.RACE_TIMEOUT / 60)} minute limit exceeded
         </div>
       </div>
 
@@ -306,7 +317,7 @@ export class RaceScene {
 
     // ── 5-minute timeout ──
     if (this._raceStarted && !this._raceFinished && !this._dnf) {
-      const remaining = RaceScene.RACE_TIMEOUT - this._raceTime;
+      const remaining = this.RACE_TIMEOUT - this._raceTime;
 
       // Warning at 30 seconds left
       const warnEl = document.getElementById('hud-time-warning');
@@ -321,10 +332,11 @@ export class RaceScene {
         if (timerEl) timerEl.style.color = '';
       }
 
-      if (this._raceTime >= RaceScene.RACE_TIMEOUT) {
+      if (this._raceTime >= this.RACE_TIMEOUT) {
         this._dnf = true;
         this.game.playerData.lastRaceTime = null;
         this.game.playerData.raceResult   = 'dnf';
+        this.game.playerData.raceTimeout  = this.RACE_TIMEOUT;
         const dnfEl = document.getElementById('hud-dnf');
         if (dnfEl) dnfEl.style.display = 'flex';
         setTimeout(() => this.game.setState('results'), 2500);

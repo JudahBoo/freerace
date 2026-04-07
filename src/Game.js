@@ -3,17 +3,19 @@ import { Input }        from './Input.js';
 import { MenuScene }    from './scenes/MenuScene.js';
 import { DriverScene }  from './scenes/DriverScene.js';
 import { GarageScene }  from './scenes/GarageScene.js';
-import { RaceScene }    from './scenes/RaceScene.js';
-import { ResultsScene } from './scenes/ResultsScene.js';
-import { MarketScene }  from './scenes/MarketScene.js';
+import { RaceScene }      from './scenes/RaceScene.js';
+import { ResultsScene }   from './scenes/ResultsScene.js';
+import { MarketScene }    from './scenes/MarketScene.js';
+import { MapSelectScene } from './scenes/MapSelectScene.js';
 
 const SCENES = {
-  menu:    MenuScene,
-  driver:  DriverScene,
-  garage:  GarageScene,
-  race:    RaceScene,
-  results: ResultsScene,
-  market:  MarketScene,
+  menu:      MenuScene,
+  driver:    DriverScene,
+  garage:    GarageScene,
+  mapselect: MapSelectScene,
+  race:      RaceScene,
+  results:   ResultsScene,
+  market:    MarketScene,
 };
 
 export class Game {
@@ -41,6 +43,8 @@ export class Game {
       lastRaceTime: 0,
       lastPrize:    null,
       raceResult:   'finished', // 'finished' | 'dnf'
+      selectedMap:  'sf',       // 'sf' | 'ny'
+      raceTimeout:  300,
     };
 
     this.renderer = new THREE.WebGLRenderer({

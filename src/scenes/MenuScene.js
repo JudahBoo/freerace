@@ -41,7 +41,7 @@ export class MenuScene {
       if (!this.game.playerData.driver.name) {
         this.game.setState('driver');
       } else {
-        this.game.setState('race');
+        this.game.setState('mapselect');
       }
     });
     this.el.querySelector('#btn-driver').addEventListener('click', () => this.game.setState('driver'));

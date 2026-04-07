@@ -41,12 +41,16 @@ export class ResultsScene {
 
   _bindActionButtons() {
     this.el.querySelector('#btn-market')?.addEventListener('click', () => this.game.setState('market'));
-    this.el.querySelector('#btn-race')?.addEventListener('click',   () => this.game.setState('race'));
+    this.el.querySelector('#btn-race')?.addEventListener('click',   () => this.game.setState('mapselect'));
     this.el.querySelector('#btn-garage')?.addEventListener('click', () => this.game.setState('garage'));
     this.el.querySelector('#btn-menu')?.addEventListener('click',   () => this.game.setState('menu'));
   }
 
   _buildDNF() {
+    const timeout = this.game.playerData.raceTimeout || 300;
+    const mins = Math.floor(timeout / 60);
+    const timeStr = `${mins}:00.000`;
+
     this.el.innerHTML = `
       <div style="text-align:center;padding:40px 20px;max-width:560px;width:100%;">
         <div style="font-size:4.5rem;font-weight:900;letter-spacing:6px;
@@ -55,10 +59,10 @@ export class ResultsScene {
         </div>
         <div style="font-size:1.1rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;
                     color:var(--muted);margin-bottom:8px;">
-          Time's Up — 5:00.000
+          Time's Up — ${timeStr}
         </div>
         <div style="color:var(--muted);font-size:0.85rem;margin-bottom:40px;line-height:1.7;">
-          You didn't finish the race within 5 minutes.<br>
+          You didn't finish the race within ${mins} minutes.<br>
           No prize awarded this time. Try again!
         </div>
         ${this._actionButtons()}
