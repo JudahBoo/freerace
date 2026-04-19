@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Input }        from './Input.js';
+import { LoginScene }   from './scenes/LoginScene.js';
 import { MenuScene }    from './scenes/MenuScene.js';
 import { DriverScene }  from './scenes/DriverScene.js';
 import { GarageScene }  from './scenes/GarageScene.js';
@@ -9,6 +10,7 @@ import { MarketScene }    from './scenes/MarketScene.js';
 import { MapSelectScene } from './scenes/MapSelectScene.js';
 
 const SCENES = {
+  login:     LoginScene,
   menu:      MenuScene,
   driver:    DriverScene,
   garage:    GarageScene,
@@ -20,12 +22,28 @@ const SCENES = {
 
 export class Game {
   constructor() {
-    this.input  = new Input();
-    this._scene = null;
-    this._state = null;
-    this._last  = 0;
+    this.input       = new Input();
+    this.currentUser = null;
+    this._scene      = null;
+    this._state      = null;
+    this._last       = 0;
 
-    this.playerData = {
+    this.playerData = this._defaultPlayerData();
+
+    this.renderer = new THREE.WebGLRenderer({
+      canvas:    document.getElementById('game-canvas'),
+      antialias: true,
+    });
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    window.addEventListener('resize', () => this._onResize());
+  }
+
+  _defaultPlayerData() {
+    return {
       driver: {
         name:        '',
         avatarIcon:  '👤',
@@ -42,40 +60,54 @@ export class Game {
       activeCar:    'crimson',
       lastRaceTime: 0,
       lastPrize:    null,
-      raceResult:   'finished', // 'finished' | 'dnf'
-      selectedMap:  'sf',       // 'sf' | 'ny'
+      raceResult:   'finished',
+      selectedMap:  'sf',
       raceTimeout:  300,
     };
+  }
 
-    this.renderer = new THREE.WebGLRenderer({
-      canvas:    document.getElementById('game-canvas'),
-      antialias: true,
-    });
-    this.renderer.setPixelRatio(window.devicePixelRatio);
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  loadAccount(username, playerData) {
+    this.currentUser = username;
+    this.playerData  = { ...this._defaultPlayerData(), ...playerData };
+    this._state      = null; // allow transition even if already on 'menu'
+    this.setState('menu');
+  }
 
-    window.addEventListener('resize', () => this._onResize());
+  saveAccount() {
+    if (!this.currentUser) return;
+    try {
+      const accounts = JSON.parse(localStorage.getItem('freerace_accounts') || '[]');
+      const idx = accounts.findIndex(a => a.username === this.currentUser);
+      if (idx !== -1) {
+        accounts[idx].playerData = this.playerData;
+        localStorage.setItem('freerace_accounts', JSON.stringify(accounts));
+      }
+    } catch (_) {}
+  }
+
+  logout() {
+    this.saveAccount();
+    this.currentUser = null;
+    this.playerData  = this._defaultPlayerData();
+    this._state      = null;
+    this.setState('login');
   }
 
   start() {
-    this.setState('menu');
+    this.setState('login');
     this._loop(0);
   }
 
   setState(name) {
     if (this._state === name) return;
 
+    this.saveAccount();
     this._scene?.destroy();
     this._scene = null;
     this._state = name;
 
     const SceneClass = SCENES[name];
-    if (!SceneClass) {
-      console.error(`Unknown scene: ${name}`);
-      return;
-    }
+    if (!SceneClass) { console.error(`Unknown scene: ${name}`); return; }
     this._scene = new SceneClass(this);
     this._scene.init();
   }
