@@ -4,7 +4,8 @@ import { Track }          from '../world/Track.js';
 import { SFEnvironment }  from '../world/SFEnvironment.js';
 import { NYTrack }        from '../world/NYTrack.js';
 import { NYEnvironment }  from '../world/NYEnvironment.js';
-import { CAR_DEFS }       from '../data/cars.js';
+import { CAR_DEFS }        from '../data/cars.js';
+import { MobileControls } from '../entities/MobileControls.js';
 
 export class RaceScene {
   constructor(game) {
@@ -57,6 +58,9 @@ export class RaceScene {
 
     document.getElementById('game-canvas').classList.add('active');
     this._hud.classList.add('active');
+
+    this._mobileControls = new MobileControls(this.input);
+    this._mobileControls.init();
 
     this._onKeyDown = (e) => {
       if (e.code === 'Escape') this._togglePause();
@@ -412,6 +416,8 @@ export class RaceScene {
 
   destroy() {
     window.removeEventListener('keydown', this._onKeyDown);
+    this._mobileControls?.destroy();
+    this._mobileControls = null;
     document.getElementById('game-canvas').classList.remove('active');
     this._hud?.classList.remove('active');
     this._hud?.remove();
