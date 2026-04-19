@@ -131,6 +131,71 @@ export class Car {
       group.add(hub);
     });
 
+    // ── Side mirrors ──
+    const mirrorArmGeo  = new THREE.BoxGeometry(0.18, 0.05, 0.06);
+    const mirrorGlassGeo = new THREE.BoxGeometry(0.05, 0.12, 0.2);
+    const mirrorMat = new THREE.MeshLambertMaterial({ color: this._darken(color, 0.6) });
+    [-1, 1].forEach(side => {
+      const arm = new THREE.Mesh(mirrorArmGeo, darkMat);
+      arm.position.set(side * 0.84, 1.32, 0.65);
+      group.add(arm);
+      const glass = new THREE.Mesh(mirrorGlassGeo, mirrorMat);
+      glass.position.set(side * 0.96, 1.35, 0.65);
+      group.add(glass);
+    });
+
+    // ── Front splitter ──
+    const splitterGeo = new THREE.BoxGeometry(2.0, 0.06, 0.4);
+    const splitter = new THREE.Mesh(splitterGeo, darkMat);
+    splitter.position.set(0, 0.275, 2.22);
+    group.add(splitter);
+
+    // ── Hood ridge ──
+    const ridgeGeo = new THREE.BoxGeometry(0.22, 0.055, 1.8);
+    const ridgeMat = new THREE.MeshLambertMaterial({ color: this._darken(color, 0.8) });
+    const ridge = new THREE.Mesh(ridgeGeo, ridgeMat);
+    ridge.position.set(0, 0.99, 0.4);
+    group.add(ridge);
+
+    // ── Front lower grille ──
+    const grilleGeo = new THREE.BoxGeometry(0.85, 0.14, 0.05);
+    const grilleMat = new THREE.MeshLambertMaterial({ color: 0x080808 });
+    const grille = new THREE.Mesh(grilleGeo, grilleMat);
+    grille.position.set(0, 0.52, 2.085);
+    group.add(grille);
+
+    // ── Rear spoiler ──
+    const spoilerSupGeo  = new THREE.BoxGeometry(0.07, 0.45, 0.07);
+    const spoilerBladGeo = new THREE.BoxGeometry(1.75, 0.09, 0.28);
+    const spoilerMat = new THREE.MeshLambertMaterial({ color: this._darken(color, 0.55) });
+    [-0.6, 0.6].forEach(x => {
+      const sup = new THREE.Mesh(spoilerSupGeo, spoilerMat);
+      sup.position.set(x, 1.2, -1.25);
+      group.add(sup);
+    });
+    const blade = new THREE.Mesh(spoilerBladGeo, spoilerMat);
+    blade.position.set(0, 1.47, -1.25);
+    group.add(blade);
+
+    // ── Exhaust pipes ──
+    const exhaustGeo = new THREE.CylinderGeometry(0.065, 0.055, 0.22, 8);
+    const exhaustMat = new THREE.MeshLambertMaterial({ color: 0x707070 });
+    [-0.42, 0.42].forEach(x => {
+      const pipe = new THREE.Mesh(exhaustGeo, exhaustMat);
+      pipe.rotation.x = Math.PI / 2;
+      pipe.position.set(x, 0.3, -2.22);
+      group.add(pipe);
+    });
+
+    // ── Brake calipers ──
+    const caliperGeo = new THREE.BoxGeometry(0.05, 0.15, 0.1);
+    const caliperMat = new THREE.MeshLambertMaterial({ color: 0xdd2200 });
+    [[-1.07, 1.25], [1.07, 1.25], [-1.07, -1.25], [1.07, -1.25]].forEach(([x, z]) => {
+      const caliper = new THREE.Mesh(caliperGeo, caliperMat);
+      caliper.position.set(x > 0 ? x - 0.14 : x + 0.14, 0.52, z);
+      group.add(caliper);
+    });
+
     // ── Ground shadow plane ──
     const shadowGeo = new THREE.PlaneGeometry(2.4, 4.8);
     const shadowMat = new THREE.MeshBasicMaterial({
