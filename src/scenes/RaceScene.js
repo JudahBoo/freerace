@@ -130,7 +130,7 @@ export class RaceScene {
 
     // Bot car (AI mode)
     if (this.game._raceMode === 'bot' && this.game._botCarDef) {
-      this._botCar = new BotCar(this.scene, this.track, this.game._botCarDef);
+      this._botCar = new BotCar(this.scene, this.track, this.game._botCarDef, this.game._botDifficulty || 'medium');
     }
 
     // Init tracking
@@ -158,13 +158,14 @@ export class RaceScene {
     const { driver } = this.game.playerData;
     const isBotRace  = this.game._raceMode === 'bot';
     const botDef     = this.game._botCarDef;
+    const diffLabel  = ({ easy:'🟢 EASY', medium:'🟡 MEDIUM', hard:'🔴 HARD' })[this.game._botDifficulty] || '🟡 MEDIUM';
 
     const botHtml = isBotRace && botDef ? `
       <div id="hud-rival" style="
         position:absolute;top:26px;left:50%;transform:translateX(-50%);
         display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
         <div style="color:#ff6600;font-size:0.6rem;font-weight:700;letter-spacing:2px;">
-          🤖 RIVAL · ${botDef.name}
+          🤖 ${botDef.name} · ${diffLabel}
         </div>
         <div style="width:180px;height:5px;background:rgba(255,255,255,0.12);border-radius:3px;">
           <div id="hud-bot-progress" style="height:100%;width:0%;background:#ff6600;border-radius:3px;transition:width 0.15s;"></div>

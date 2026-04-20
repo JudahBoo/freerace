@@ -1,19 +1,25 @@
 import * as THREE from 'three';
 
-const SPEED_FACTOR = 0.72; // fraction of car's maxSpeed the bot sustains
+const DIFFICULTY = {
+  easy:   { speedFactor: 0.52, noiseAmp: 0.22 },
+  medium: { speedFactor: 0.72, noiseAmp: 0.16 },
+  hard:   { speedFactor: 0.91, noiseAmp: 0.06 },
+};
 
 export class BotCar {
-  constructor(scene, track, carDef) {
+  constructor(scene, track, carDef, difficulty = 'medium') {
     this._scene = scene;
     this._track = track;
     this._carDef = carDef;
+    const cfg = DIFFICULTY[difficulty] || DIFFICULTY.medium;
     this._t = 0.001;
     this._curveLength = track.curve.getLength();
-    this._speed = carDef.maxSpeed * SPEED_FACTOR;
+    this._speed     = carDef.maxSpeed * cfg.speedFactor;
+    this._noiseAmp  = cfg.noiseAmp;
     this._noiseAccum = 0;
     this._started = false;
     this.finished = false;
-    this.finishTime = 0;     // seconds elapsed when bot crossed finish
+    this.finishTime = 0;
     this._elapsed = 0;
 
     this.mesh = this._buildMesh(carDef.color);
@@ -88,7 +94,7 @@ export class BotCar {
     this._noiseAccum += dt;
 
     // Smooth sinusoidal noise for realistic speed variation
-    const noise = 0.92 + 0.16 * Math.sin(this._noiseAccum * 1.7);
+    const noise = (1 - this._noiseAmp / 2) + this._noiseAmp * Math.sin(this._noiseAccum * 1.7);
     this._t += (this._speed * noise * dt) / this._curveLength;
 
     if (this._t >= 0.98) {
