@@ -40,6 +40,7 @@ export class MenuScene {
         <button class="btn btn-secondary" id="btn-driver">${driver.name ? '&#9998; Edit Driver' : '&#43; Create Driver'}</button>
         <button class="btn btn-secondary" id="btn-garage">&#9881; Garage</button>
         <button class="btn btn-secondary" id="btn-market">🏪 Market</button>
+        <button class="btn btn-secondary" id="btn-leaderboard">🏆 Leaderboard</button>
       </div>
     `;
 
@@ -49,12 +50,13 @@ export class MenuScene {
       if (!this.game.playerData.driver.name) {
         this.game.setState('driver');
       } else {
-        this.game.setState('mapselect');
+        this.game.setState('racemode');
       }
     });
     this.el.querySelector('#btn-driver').addEventListener('click', () => this.game.setState('driver'));
     this.el.querySelector('#btn-garage').addEventListener('click', () => this.game.setState('garage'));
     this.el.querySelector('#btn-market').addEventListener('click', () => this.game.setState('market'));
+    this.el.querySelector('#btn-leaderboard').addEventListener('click', () => this.game.setState('leaderboard'));
     this.el.querySelector('#btn-logout').addEventListener('click', () => this.game.logout());
   }
 
