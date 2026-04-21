@@ -6,6 +6,7 @@ export class MenuScene {
 
   init() {
     const { driver, car } = this.game.playerData;
+    const username = this.game.currentUser;
 
     const driverBadge = driver.name
       ? `<div class="menu-driver-badge">
@@ -20,6 +21,13 @@ export class MenuScene {
     this.el = document.createElement('div');
     this.el.className = 'screen';
     this.el.innerHTML = `
+      <div style="position:relative;width:100%;max-width:420px;">
+        <div style="position:absolute;top:0;right:0;display:flex;align-items:center;gap:10px;">
+          <span style="font-size:0.72rem;color:var(--muted);letter-spacing:1px;">👤 ${username}</span>
+          <button class="btn btn-ghost" id="btn-logout" style="padding:6px 12px;font-size:0.7rem;">Log Out</button>
+        </div>
+      </div>
+
       <div class="logo">FreeRace</div>
       <div class="logo-sub">City Racing</div>
 
@@ -32,6 +40,7 @@ export class MenuScene {
         <button class="btn btn-secondary" id="btn-driver">${driver.name ? '&#9998; Edit Driver' : '&#43; Create Driver'}</button>
         <button class="btn btn-secondary" id="btn-garage">&#9881; Garage</button>
         <button class="btn btn-secondary" id="btn-market">🏪 Market</button>
+        <button class="btn btn-secondary" id="btn-leaderboard">🏆 Leaderboard</button>
       </div>
     `;
 
@@ -41,12 +50,14 @@ export class MenuScene {
       if (!this.game.playerData.driver.name) {
         this.game.setState('driver');
       } else {
-        this.game.setState('mapselect');
+        this.game.setState('racemode');
       }
     });
     this.el.querySelector('#btn-driver').addEventListener('click', () => this.game.setState('driver'));
     this.el.querySelector('#btn-garage').addEventListener('click', () => this.game.setState('garage'));
     this.el.querySelector('#btn-market').addEventListener('click', () => this.game.setState('market'));
+    this.el.querySelector('#btn-leaderboard').addEventListener('click', () => this.game.setState('leaderboard'));
+    this.el.querySelector('#btn-logout').addEventListener('click', () => this.game.logout());
   }
 
   update() {}
