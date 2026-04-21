@@ -1,6 +1,6 @@
 import * as THREE from 'three';
+import { getSeason, SEASON_CONFIG } from './Seasons.js';
 
-const TREE_GREENS = [0x1a4a1a, 0x2d6a2d, 0x0f3a0f, 0x3a6b20, 0x1e5c1e];
 const PAINTED_LADIES = [0xe8a0b4, 0xf2d06b, 0x8fbcdb, 0xa8c9a5, 0xe07b39, 0xd4a0c8, 0xf0e68c, 0xb8d4e8, 0xe8c4a0, 0x9ecfba];
 
 function rnd(min, max) { return min + Math.random() * (max - min); }
@@ -9,11 +9,13 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 export class SFEnvironment {
   constructor(scene, track) {
-    this.scene   = scene;
-    this.track   = track;
-    this.curve   = track.curve;
-    this.group   = new THREE.Group();
+    this.scene    = scene;
+    this.track    = track;
+    this.curve    = track.curve;
+    this.group    = new THREE.Group();
     this.trolleys = [];
+    this._season  = getSeason();
+    this._palette = SEASON_CONFIG[this._season];
 
     scene.add(this.group);
     this._build();
@@ -29,6 +31,7 @@ export class SFEnvironment {
     this._buildCity2();
     this._buildRoundabout();
     this._buildClimb();
+    this._buildSeasonalExtras();
   }
 
   // ─────────────────────────────────────────────
@@ -92,12 +95,10 @@ export class SFEnvironment {
     this.group.add(bay2);
 
     // ── Marin Headlands — rolling green hills north of the bridge ──
-    // Bridge ends at z=240; keep hills at z >= 320 with capped radius
-    // so they never reach back toward the bridge deck.
-    const marinGreen = [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28];
+    const marinGreen = this._palette.marinGreen;
     const rng = new MiniRng(54321);
     for (let i = 0; i < 12; i++) {
-      const r   = rng.range(8, 14);    // small radius — keeps footprint well clear of descent
+      const r   = rng.range(8, 14);
       const col = marinGreen[i % marinGreen.length];
       const geo = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
       const mat = new THREE.MeshLambertMaterial({ color: col });
@@ -109,7 +110,7 @@ export class SFEnvironment {
 
     // Marin ground plane
     const marinGeo = new THREE.PlaneGeometry(1200, 400);
-    const marinMat = new THREE.MeshLambertMaterial({ color: 0x3d7a2d });
+    const marinMat = new THREE.MeshLambertMaterial({ color: this._palette.grassColor });
     const marin    = new THREE.Mesh(marinGeo, marinMat);
     marin.rotation.x = -Math.PI / 2;
     marin.position.set(0, 0.02, 430);
@@ -131,7 +132,7 @@ export class SFEnvironment {
   // City 1 track: z ≈ 368–390  City 2 track: z ≈ -248 to -308
   // ─────────────────────────────────────────────
   _buildGrassyValleys() {
-    const hillCols = [0x4a8f38, 0x3d7a2d, 0x56a040, 0x3a7028, 0x4f9040];
+    const hillCols = this._palette.hillColors;
 
     const grassPlane = (w, d, x, z, col) => {
       const m = new THREE.Mesh(
@@ -158,18 +159,13 @@ export class SFEnvironment {
     };
 
     // ── City 1 (track at z ≈ 368–390) ──
-    // North strip: z = 430–530, safe clearance ≥ 40 units from track edge
-    grassPlane(420, 100, -430, 480, 0x3d7a2d);
-    // South strip: z = 200–330, safe clearance ≥ 38 units
-    grassPlane(400,  90, -420, 265, 0x4a8f38);
-    // Hills strictly north of city 1 — zMin=500 so max footprint (28*2.0=56) can't reach z=390
+    grassPlane(420, 100, -430, 480, this._palette.grassColor);
+    grassPlane(400,  90, -420, 265, this._palette.hillColors[0]);
     scatterHills(88888, 8, -620, -170, 500, 580);
 
     // ── City 2 (track at z ≈ -248 to -308) ──
-    // South strip: z = -345 to -460, safe clearance ≥ 37 units
-    grassPlane(500, 115, -210, -402, 0x3d7a2d);
-    // North strip: z = -130 to -205, safe clearance ≥ 43 units
-    grassPlane(480,  75, -210, -167, 0x4a8835);
+    grassPlane(500, 115, -210, -402, this._palette.grassColor);
+    grassPlane(480,  75, -210, -167, this._palette.hillColors[0]);
     // Hills strictly south of city 2
     scatterHills(11111, 7, -620, -40, -345, -460);
 
@@ -193,7 +189,7 @@ export class SFEnvironment {
     this.group.add(trunk);
 
     const canopyR = rng.range(3, 6);
-    const cols    = [0x3a7a28, 0x4a8c35, 0x2e6320, 0x58a040, 0x4d9438];
+    const cols    = this._palette.roundTreeColors;
     const canopy  = new THREE.Mesh(
       new THREE.SphereGeometry(canopyR, 7, 5),
       new THREE.MeshLambertMaterial({ color: cols[Math.floor(rng.rand() * cols.length)] })
@@ -342,7 +338,7 @@ export class SFEnvironment {
           const r = rng.range(1, 2.5);
           const bush = new THREE.Mesh(
             new THREE.SphereGeometry(r, 6, 4),
-            new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) })
+            new THREE.MeshLambertMaterial({ color: pick(this._palette.bushColors) })
           );
           bush.position.set(bushPos.x, r * 0.5, bushPos.z);
           this.group.add(bush);
@@ -364,7 +360,7 @@ export class SFEnvironment {
     const canopyH = rng.range(12, 20);
     const canopyR = rng.range(3, 6);
     const canopyGeo = new THREE.ConeGeometry(canopyR, canopyH, 7);
-    const canopyMat = new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) });
+    const canopyMat = new THREE.MeshLambertMaterial({ color: pick(this._palette.treeColors) });
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
     canopy.position.set(pos.x, trunkH + canopyH / 2 - 1, pos.z);
     this.group.add(canopy);
@@ -716,6 +712,294 @@ export class SFEnvironment {
     return (Math.min(255, Math.round(r * factor)) << 16) |
            (Math.min(255, Math.round(g * factor)) << 8) |
             Math.min(255, Math.round(b * factor));
+  }
+
+  // ─────────────────────────────────────────────
+  // SEASONAL EXTRAS
+  // ─────────────────────────────────────────────
+  _buildSeasonalExtras() {
+    if (this._season === 'spring') this._buildFlowers();
+    if (this._season === 'fall')   this._buildLeafCarpet();
+    if (this._season === 'winter') { this._buildSnow(); this._buildWinterDecor(); }
+  }
+
+  // Spring: flower clusters scattered across grassy valley zones
+  _buildFlowers() {
+    const FLOWER_COLS = [0xff88bb, 0xffdd44, 0xffffff, 0xcc88ff, 0xff6699, 0xffaa44];
+    const rng = new MiniRng(20241);
+
+    const zones = [
+      // [xMin, xMax, zMin, zMax, count]
+      [-620, -160,  445, 525, 60],
+      [-600,  -40, -350,-450, 50],
+      [-420, -160,  200, 330, 40],
+      [-210,   0,  -130,-205, 35],
+      [-500,  400,  470, 620, 45],
+    ];
+
+    zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
+      for (let i = 0; i < count; i++) {
+        const cx = rng.range(xMin, xMax);
+        const cz = rng.range(zMin, zMax);
+        const numPetals = rng.intRange(3, 7);
+
+        for (let k = 0; k < numPetals; k++) {
+          const stemH = rng.range(0.4, 1.0);
+          const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, stemH, 4);
+          const stem    = new THREE.Mesh(stemGeo, new THREE.MeshLambertMaterial({ color: 0x2d7a20 }));
+          const ox = cx + rng.range(-1.5, 1.5);
+          const oz = cz + rng.range(-1.5, 1.5);
+          stem.position.set(ox, stemH / 2, oz);
+          this.group.add(stem);
+
+          const headR   = rng.range(0.15, 0.32);
+          const headGeo = new THREE.SphereGeometry(headR, 5, 4);
+          const headMat = new THREE.MeshLambertMaterial({ color: FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)] });
+          const head    = new THREE.Mesh(headGeo, headMat);
+          head.position.set(ox, stemH + headR * 0.6, oz);
+          this.group.add(head);
+        }
+      }
+    });
+  }
+
+  // Fall: colorful leaf carpet on grassy areas
+  _buildLeafCarpet() {
+    const LEAF_COLS = [0xcc3300, 0xe85500, 0xf08800, 0xd4a000, 0xaa2200, 0xe06000, 0xb84400];
+    const rng = new MiniRng(20242);
+
+    const zones = [
+      [-620, -160,  445, 525, 200],
+      [-600,  -40, -350,-450, 180],
+      [-420, -160,  200, 330, 150],
+      [-210,   0,  -130,-205, 130],
+      [-500,  400,  470, 620, 170],
+    ];
+
+    zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
+      for (let i = 0; i < count; i++) {
+        const w   = rng.range(0.4, 1.2);
+        const d   = rng.range(0.4, 1.2);
+        const geo = new THREE.PlaneGeometry(w, d);
+        const mat = new THREE.MeshLambertMaterial({
+          color: LEAF_COLS[Math.floor(rng.rand() * LEAF_COLS.length)],
+          side: THREE.DoubleSide,
+        });
+        const leaf = new THREE.Mesh(geo, mat);
+        leaf.rotation.x = -Math.PI / 2;
+        leaf.rotation.z = rng.range(0, Math.PI * 2);
+        leaf.position.set(rng.range(xMin, xMax), 0.04, rng.range(zMin, zMax));
+        this.group.add(leaf);
+      }
+    });
+  }
+
+  // Winter: snow ground cover
+  _buildSnow() {
+    const snowMat = new THREE.MeshLambertMaterial({ color: 0xf0f6fa });
+
+    // Snow planes matching grassy valley zones
+    const patches = [
+      [420, 100, -430,  480],
+      [400,  90, -420,  265],
+      [500, 115, -210, -402],
+      [480,  75, -210, -167],
+      [1200, 400,  0,   430],  // Marin snow
+    ];
+    patches.forEach(([w, d, x, z]) => {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(w, d), snowMat);
+      s.rotation.x = -Math.PI / 2;
+      s.position.set(x, 0.06, z);
+      this.group.add(s);
+    });
+
+    // Snow caps on hills (small white half-spheres)
+    const rng = new MiniRng(20243);
+    for (let i = 0; i < 20; i++) {
+      const r   = rng.range(4, 10);
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshLambertMaterial({ color: 0xeef4f8 })
+      );
+      cap.scale.set(rng.range(1.2, 2.0), rng.range(0.2, 0.4), rng.range(1.2, 2.0));
+      cap.position.set(rng.range(-500, 300), 0.5, rng.range(-460, 600));
+      this.group.add(cap);
+    }
+  }
+
+  // Winter: Christmas trees, menorahs, candle groups, string lights
+  _buildWinterDecor() {
+    // Christmas trees along City 1 and City 2 streets
+    const ctRng = new MiniRng(20244);
+    const ctSpots = [
+      // City 1 zone
+      ...Array.from({ length: 10 }, () => [ctRng.range(-460, -200), ctRng.range(220, 520)]),
+      // City 2 zone
+      ...Array.from({ length: 8  }, () => [ctRng.range(-460, -80),  ctRng.range(-160, -440)]),
+      // Roundabout area
+      [30, -165], [80, -165], [-10, -195],
+    ];
+    ctSpots.forEach(([x, z]) => this._makeChristmasTree(x, z, ctRng));
+
+    // Menorahs — near roundabout and City 2 entrance
+    const menPositions = [
+      [60, -195], [-5, -190], [110, -200],
+      [-280, -280], [-320, -310],
+    ];
+    menPositions.forEach(([x, z]) => this._makeMenorah(x, z));
+
+    // Candle groups scattered in valleys
+    const candleRng = new MiniRng(20245);
+    for (let i = 0; i < 14; i++) {
+      const x = candleRng.range(-400, -100);
+      const z = candleRng.rand() < 0.5 ? candleRng.range(220, 510) : candleRng.range(-160, -440);
+      this._makeCandleGroup(x, z, candleRng);
+    }
+
+    // String lights between buildings in City 1 zone
+    this._buildStringLights(0.22, 0.36, 8);
+    // String lights in City 2 zone
+    this._buildStringLights(0.68, 0.78, 6);
+  }
+
+  _makeChristmasTree(x, z, rng) {
+    const h = rng.range(6, 12);
+    // 3-tier cone
+    const greens = [0x0a5c1e, 0x0d7a28, 0x0f6622];
+    for (let i = 0; i < 3; i++) {
+      const r  = (h * 0.28) * (1 - i * 0.22);
+      const ch = h * 0.40;
+      const geo = new THREE.ConeGeometry(r, ch, 8);
+      const mat = new THREE.MeshLambertMaterial({ color: greens[i % greens.length] });
+      const cone = new THREE.Mesh(geo, mat);
+      cone.position.set(x, h * 0.15 + i * ch * 0.55, z);
+      this.group.add(cone);
+    }
+    // Trunk
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.2, 0.28, h * 0.18, 5),
+      new THREE.MeshLambertMaterial({ color: 0x5c3010 })
+    );
+    trunk.position.set(x, h * 0.09, z);
+    this.group.add(trunk);
+    // Star topper
+    const star = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 5, 4),
+      new THREE.MeshLambertMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.6 })
+    );
+    star.position.set(x, h * 0.97, z);
+    this.group.add(star);
+    // Colorful ornament dots
+    const ORN_COLS = [0xff2222, 0xffaa00, 0x2255ff, 0xff55aa, 0x00ccff];
+    for (let i = 0; i < 6; i++) {
+      const a  = (i / 6) * Math.PI * 2;
+      const r  = h * 0.18;
+      const oy = h * 0.3 + (i % 3) * h * 0.18;
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 5, 4),
+        new THREE.MeshLambertMaterial({ color: ORN_COLS[i % ORN_COLS.length], emissive: ORN_COLS[i % ORN_COLS.length], emissiveIntensity: 0.3 })
+      );
+      orb.position.set(x + Math.cos(a) * r, oy, z + Math.sin(a) * r);
+      this.group.add(orb);
+    }
+  }
+
+  _makeMenorah(x, z) {
+    const baseMat   = new THREE.MeshLambertMaterial({ color: 0xd4af37 });
+    const flameMat  = new THREE.MeshLambertMaterial({ color: 0xff8800, emissive: 0xff4400, emissiveIntensity: 0.8 });
+
+    // Base
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 0.5), baseMat);
+    mBase.position.set(x, 0.12, z);
+    this.group.add(mBase);
+    // Central stem
+    const mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.5, 6), baseMat);
+    mStem.position.set(x, 1.25, z);
+    this.group.add(mStem);
+    // 8 branches (4 each side) + 1 shamash (center, taller)
+    const positions = [-1.4, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.4]; // 8 candles
+    positions.forEach(ox => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, Math.abs(ox) + 0.1, 4), baseMat);
+      arm.position.set(x + ox / 2, 1.4, z);
+      this.group.add(arm);
+      // Candle
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0xfffff0 }));
+      candle.position.set(x + ox, 1.85, z);
+      this.group.add(candle);
+      // Flame
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 4), flameMat);
+      flame.position.set(x + ox, 2.3, z);
+      this.group.add(flame);
+    });
+    // Shamash (center tallest candle)
+    const shamash = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.9, 6), new THREE.MeshLambertMaterial({ color: 0xfffff0 }));
+    shamash.position.set(x, 2.2, z);
+    this.group.add(shamash);
+    const sFlame = new THREE.Mesh(new THREE.SphereGeometry(0.12, 5, 4), flameMat);
+    sFlame.position.set(x, 2.75, z);
+    this.group.add(sFlame);
+  }
+
+  _makeCandleGroup(x, z, rng) {
+    const CANDLE_COLS = [0xfffff0, 0xffe0e0, 0xe0e0ff, 0xffe8d0, 0xf0fff0];
+    const count = rng.intRange(2, 4);
+    for (let i = 0; i < count; i++) {
+      const ox = x + (i - count / 2) * 0.6;
+      const h  = rng.range(0.8, 1.8);
+      const candle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.14, h, 6),
+        new THREE.MeshLambertMaterial({ color: CANDLE_COLS[Math.floor(rng.rand() * CANDLE_COLS.length)] })
+      );
+      candle.position.set(ox, h / 2, z);
+      this.group.add(candle);
+      const flame = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 5, 4),
+        new THREE.MeshLambertMaterial({ color: 0xff9900, emissive: 0xff4400, emissiveIntensity: 0.9 })
+      );
+      flame.position.set(ox, h + 0.12, z);
+      this.group.add(flame);
+    }
+  }
+
+  _buildStringLights(tStart, tEnd, count) {
+    const LIGHT_COLS = [0xff2222, 0xffaa00, 0x44ff44, 0x4488ff, 0xff44ff, 0x00ffff];
+    const step = (tEnd - tStart) / count;
+    for (let i = 0; i < count; i++) {
+      const t0 = tStart + i * step;
+      const t1 = Math.min(t0 + step, tEnd);
+      const p0 = this.curve.getPointAt(t0);
+      const p1 = this.curve.getPointAt(t1);
+      const tan = this.curve.getTangentAt(t0);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const y = 8;
+
+      // Wire (thin tube)
+      const wirePts = [
+        p0.clone().addScaledVector(perp,  14).setY(y),
+        p0.clone().addScaledVector(perp, -14).setY(y),
+      ];
+      const wire = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wirePts), 4, 0.05, 4, false),
+        new THREE.MeshLambertMaterial({ color: 0x333333 })
+      );
+      this.group.add(wire);
+
+      // Bulbs along the wire
+      for (let b = 0; b < 10; b++) {
+        const bx = p0.x + (b / 9) * (wirePts[1].x - wirePts[0].x);
+        const bz = p0.z; // z stays same (perpendicular to road)
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 5, 4),
+          new THREE.MeshLambertMaterial({
+            color: LIGHT_COLS[b % LIGHT_COLS.length],
+            emissive: LIGHT_COLS[b % LIGHT_COLS.length],
+            emissiveIntensity: 0.7,
+          })
+        );
+        bulb.position.set(bx, y - 0.1, bz);
+        this.group.add(bulb);
+      }
+    }
   }
 
   update(dt) {
