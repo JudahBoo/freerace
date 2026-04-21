@@ -16,19 +16,20 @@ export function getSeason() {
 
 export const SEASON_CONFIG = {
   spring: {
-    skyColor:        0x87ceeb,
-    fogColor:        0x87ceeb,
+    // Vivid, fresh spring colors — visually distinct from every other season
+    skyColor:        0xb0e8ff,  // bright clear sky blue
+    fogColor:        0xb0e8ff,
     fogNear:         200,
     fogFar:          700,
-    ambientColor:    0xfff0dd,
-    ambientIntensity:1.6,
-    sunColor:        0xffeedd,
-    treeColors:      [0x1a4a1a, 0x2d6a2d, 0x0f3a0f, 0x3a6b20, 0x1e5c1e],
-    roundTreeColors: [0x3a7a28, 0x4a8c35, 0x2e6320, 0x58a040, 0x4d9438],
-    grassColor:      0x3d7a2d,
-    hillColors:      [0x4a8f38, 0x3d7a2d, 0x56a040, 0x3a7028, 0x4f9040],
-    marinGreen:      [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28],
-    bushColors:      [0x1a4a1a, 0x2d6a2d, 0x0f3a0f, 0x3a6b20, 0x1e5c1e],
+    ambientColor:    0xeeffcc,  // warm spring light (slight green tint)
+    ambientIntensity:1.8,
+    sunColor:        0xfff4cc,  // bright warm sun
+    treeColors:      [0x3aaa30, 0x50c840, 0x28a820, 0x60d050, 0x40b835], // vivid fresh green
+    roundTreeColors: [0x5acc40, 0x44bb30, 0x60d050, 0x38a828, 0x70d860],
+    grassColor:      0x5acc3a,  // vivid spring green (vs default dark 0x3d7a2d)
+    hillColors:      [0x5acc3a, 0x60d040, 0x48b830, 0x68d848, 0x50c038],
+    marinGreen:      [0x5acc3a, 0x60d040, 0x48b830, 0x68d848, 0x50c038],
+    bushColors:      [0x3aaa30, 0x50c840, 0x28a820, 0x60d050, 0x40b835],
   },
   summer: {
     skyColor:        0x4a8fd4,

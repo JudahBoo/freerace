@@ -53,18 +53,21 @@ export class NYEnvironment {
   }
 
   // Ring of background skyscrapers surrounding the entire NY map
+  // Track bounds: x=[0,-880], z=[0,435]. Player mostly looks WEST on
+  // waterfront and NORTH/SOUTH during zigzag. All zones placed within
+  // 50-400 units so they stay well inside the 700-unit fog range.
   _buildBackgroundSkyline() {
     const rng = new MiniRng(99887);
 
-    // Simple palette for distant buildings
     const BG_MATS = [
-      new THREE.MeshLambertMaterial({ color: 0x334466 }), // glass blue
+      new THREE.MeshLambertMaterial({ color: 0x3a5577 }), // glass blue
       new THREE.MeshLambertMaterial({ color: 0x4a6688 }), // glass teal
-      new THREE.MeshLambertMaterial({ color: 0x888898 }), // concrete
-      new THREE.MeshLambertMaterial({ color: 0xa09898 }), // stone
-      new THREE.MeshLambertMaterial({ color: 0x7a4838 }), // brick
+      new THREE.MeshLambertMaterial({ color: 0x8a8a9a }), // concrete
+      new THREE.MeshLambertMaterial({ color: 0x9a9090 }), // stone
+      new THREE.MeshLambertMaterial({ color: 0x8a4840 }), // brick red
       new THREE.MeshLambertMaterial({ color: 0x223355 }), // dark glass
-      new THREE.MeshLambertMaterial({ color: 0x556677 }), // slate
+      new THREE.MeshLambertMaterial({ color: 0x667788 }), // slate blue
+      new THREE.MeshLambertMaterial({ color: 0x556644 }), // dark green glass
     ];
 
     const placeBuilding = (x, z, w, d, h) => {
@@ -72,73 +75,80 @@ export class NYEnvironment {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       mesh.position.set(x, h / 2, z);
       this.group.add(mesh);
-
-      // Simple setback tower on top of taller buildings
-      if (h > 80 && rng.rand() < 0.6) {
-        const tw = w * rng.range(0.4, 0.65);
-        const td = d * rng.range(0.4, 0.65);
-        const th = h * rng.range(0.25, 0.45);
+      // Setback tower on tall buildings
+      if (h > 60 && rng.rand() < 0.65) {
+        const tw = w * rng.range(0.35, 0.6);
+        const td = d * rng.range(0.35, 0.6);
+        const th = h * rng.range(0.3, 0.5);
         const top = new THREE.Mesh(new THREE.BoxGeometry(tw, th, td), mat);
         top.position.set(x, h + th / 2, z);
         this.group.add(top);
-        // Optional spire
-        if (rng.rand() < 0.4) {
+        if (h > 100 && rng.rand() < 0.5) {
           const spire = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.5, tw * 0.25, h * 0.15, 4),
-            new THREE.MeshLambertMaterial({ color: 0xcccccc })
+            new THREE.CylinderGeometry(0.4, tw * 0.2, h * 0.18, 4),
+            new THREE.MeshLambertMaterial({ color: 0xbbbbcc })
           );
-          spire.position.set(x, h + th + h * 0.075, z);
+          spire.position.set(x, h + th + h * 0.09, z);
           this.group.add(spire);
         }
       }
     };
 
-    // ── North wall (z = 600–1000) — seen from waterfront straight ──
-    for (let i = 0; i < 38; i++) {
-      const x = rng.range(-1100, 200);
-      const z = rng.range(620, 1000);
-      const w = rng.range(28, 55);
-      const d = rng.range(22, 45);
-      const h = rng.range(55, 190);
-      placeBuilding(x, z, w, d, h);
+    // ── NORTH: visible from waterfront (player looks left while heading west) ──
+    // Zone starts at z=460 (25 units north of waterfront z=435)
+    for (let i = 0; i < 55; i++) {
+      const x = rng.range(-950, 150);
+      const z = rng.range(460, 680);
+      placeBuilding(x, z, rng.range(22, 50), rng.range(18, 40), rng.range(40, 160));
     }
 
-    // ── South wall (z = -250 to -650) ──
-    for (let i = 0; i < 28; i++) {
-      const x = rng.range(-1100, 300);
-      const z = rng.range(-650, -250);
-      const w = rng.range(28, 50);
-      const d = rng.range(20, 42);
-      const h = rng.range(50, 160);
-      placeBuilding(x, z, w, d, h);
+    // ── EAST: visible from start straight + zigzag (player looks right) ──
+    // x=60-380 is 60-380 units east of the start at x=0
+    for (let i = 0; i < 45; i++) {
+      const x = rng.range(60, 380);
+      const z = rng.range(-80, 520);
+      placeBuilding(x, z, rng.range(20, 45), rng.range(18, 38), rng.range(35, 130));
     }
 
-    // ── East wall (x = 200–700) ──
-    for (let i = 0; i < 25; i++) {
-      const x = rng.range(200, 700);
-      const z = rng.range(-200, 700);
-      const w = rng.range(25, 48);
-      const d = rng.range(20, 40);
-      const h = rng.range(50, 150);
-      placeBuilding(x, z, w, d, h);
+    // ── WEST END: visible when player approaches finish (heading west) ──
+    // finish is at x=-880; buildings at x=-930 to -1300
+    for (let i = 0; i < 40; i++) {
+      const x = rng.range(-1300, -900);
+      const z = rng.range(200, 620);
+      placeBuilding(x, z, rng.range(22, 50), rng.range(18, 42), rng.range(40, 160));
     }
 
-    // ── West wall (x = -1100 to -1600) ──
+    // ── SOUTH: visible from start straight (z=0-95 looking south/right) ──
+    for (let i = 0; i < 35; i++) {
+      const x = rng.range(-600, 150);
+      const z = rng.range(-50, -380);
+      placeBuilding(x, z, rng.range(20, 44), rng.range(18, 36), rng.range(30, 120));
+    }
+
+    // ── Dense mid-distance fill: NORTH of zigzag area (x=-200 to 0, z=460-560) ──
+    // These are very close to the zigzag end and highly visible
+    for (let i = 0; i < 20; i++) {
+      const x = rng.range(-200, 50);
+      const z = rng.range(460, 580);
+      placeBuilding(x, z, rng.range(18, 38), rng.range(16, 30), rng.range(25, 90));
+    }
+
+    // ── Dense mid-distance fill: behind the start (x=50-200, z=-30 to -160) ──
+    for (let i = 0; i < 20; i++) {
+      const x = rng.range(-100, 200);
+      const z = rng.range(-30, -180);
+      placeBuilding(x, z, rng.range(16, 36), rng.range(14, 28), rng.range(25, 80));
+    }
+
+    // ── Very far backdrop (tall spires barely visible through fog, all sides) ──
     for (let i = 0; i < 30; i++) {
-      const x = rng.range(-1600, -1050);
-      const z = rng.range(-200, 700);
-      const w = rng.range(28, 55);
-      const d = rng.range(22, 45);
-      const h = rng.range(55, 180);
-      placeBuilding(x, z, w, d, h);
-    }
-
-    // ── Mid-distance fill — pockets visible through track gaps ──
-    for (let i = 0; i < 30; i++) {
-      const x = rng.range(-1050, 180);
-      const z = rng.rand() < 0.5 ? rng.range(480, 620) : rng.range(-150, -250);
-      const h = rng.range(40, 120);
-      placeBuilding(x, z, rng.range(22, 42), rng.range(18, 35), h);
+      const side = Math.floor(rng.rand() * 4);
+      let x, z;
+      if (side === 0) { x = rng.range(-1000, 200); z = rng.range(700, 1100); }
+      else if (side === 1) { x = rng.range(-1000, 200); z = rng.range(-400, -600); }
+      else if (side === 2) { x = rng.range(400, 800); z = rng.range(-100, 600); }
+      else { x = rng.range(-1350, -1050); z = rng.range(-100, 650); }
+      placeBuilding(x, z, rng.range(30, 60), rng.range(24, 50), rng.range(80, 220));
     }
   }
 

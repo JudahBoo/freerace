@@ -350,7 +350,14 @@ export class SFEnvironment {
           const offset = rng.range(18, 38) * side;
           const pos    = pt.clone().addScaledVector(perp, offset);
           pos.y = 0;
-          rng.rand() < 0.20 ? this._makePalm(pos, rng) : this._makeTree(pos, rng);
+          if (rng.rand() < 0.20) {
+            this._makePalm(pos, rng);
+          } else if (this._season === 'spring' && rng.rand() < 0.40) {
+            // 40% of jungle trees become pink cherry blossoms in spring
+            this._makeBlossomTree(pos.x, pos.z, rng);
+          } else {
+            this._makeTree(pos, rng);
+          }
         }
 
         // Occasional bush — also kept clear of road (15 units min)
@@ -741,9 +748,58 @@ export class SFEnvironment {
   // SEASONAL EXTRAS
   // ─────────────────────────────────────────────
   _buildSeasonalExtras() {
-    if (this._season === 'spring') this._buildFlowers();
+    if (this._season === 'spring') { this._buildFlowers(); this._buildSpringRoadSideFlowers(); }
     if (this._season === 'fall')   this._buildLeafCarpet();
     if (this._season === 'winter') { this._buildSnow(); this._buildWinterDecor(); }
+  }
+
+  // Spring: flowers and blossoms placed RIGHT next to the road in city sections
+  // so the player sees them as they drive through (10-22 units from road center)
+  _buildSpringRoadSideFlowers() {
+    const FLOWER_COLS = [0xff44aa, 0xffee22, 0xff88cc, 0xdd66ff, 0xff2277, 0xff8800, 0xee44cc, 0xffffff];
+    const rng = new MiniRng(20249);
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0x2a8822 });
+    const step = 0.004;
+
+    // City 1 + City 2 + roundabout approach: flowers along both road edges
+    const roadSections = [[0.20, 0.39], [0.65, 0.80], [0.80, 0.89]];
+    roadSections.forEach(([tStart, tEnd]) => {
+      for (let t = tStart; t < tEnd; t += step) {
+        if (rng.rand() > 0.55) continue; // ~55% of positions get a cluster
+        const pt   = this.curve.getPointAt(t);
+        const tan  = this.curve.getTangentAt(t);
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+
+        [-1, 1].forEach(side => {
+          const offset = rng.range(10, 22) * side;
+          const base   = pt.clone().addScaledVector(perp, offset);
+
+          // 2-4 flowers per cluster
+          const count = rng.intRange(2, 4);
+          for (let k = 0; k < count; k++) {
+            const stemH = rng.range(1.5, 4.0);
+            const ox = base.x + rng.range(-2, 2);
+            const oz = base.z + rng.range(-2, 2);
+
+            const stem = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.1, 0.14, stemH, 4),
+              stemMat
+            );
+            stem.position.set(ox, pt.y + stemH / 2, oz);
+            this.group.add(stem);
+
+            const headR = rng.range(0.6, 1.4);
+            const col   = FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)];
+            const head  = new THREE.Mesh(
+              new THREE.SphereGeometry(headR, 6, 5),
+              new THREE.MeshLambertMaterial({ color: col })
+            );
+            head.position.set(ox, pt.y + stemH + headR * 0.5, oz);
+            this.group.add(head);
+          }
+        });
+      }
+    });
   }
 
   // Spring: flower clusters scattered across grassy valley zones
