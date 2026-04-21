@@ -158,22 +158,45 @@ export class SFEnvironment {
       }
     };
 
+    // Large background ground plane to prevent visible edges
+    const bgGround = new THREE.Mesh(
+      new THREE.PlaneGeometry(3000, 3000),
+      new THREE.MeshLambertMaterial({ color: this._palette.grassColor })
+    );
+    bgGround.rotation.x = -Math.PI / 2;
+    bgGround.position.set(-300, -0.1, 100);
+    this.group.add(bgGround);
+
     // ── City 1 (track at z ≈ 368–390) ──
-    grassPlane(420, 100, -430, 480, this._palette.grassColor);
-    grassPlane(400,  90, -420, 265, this._palette.hillColors[0]);
-    scatterHills(88888, 8, -620, -170, 500, 580);
+    grassPlane(520, 130, -430, 480, this._palette.grassColor);
+    grassPlane(480, 110, -420, 265, this._palette.hillColors[0]);
+    // Far sides of City 1 — extra coverage
+    grassPlane(300,  90, -750,  430, this._palette.hillColors[1]);
+    grassPlane(280,  80, -750,  300, this._palette.hillColors[2]);
+    scatterHills(88888, 12, -750, -150, 490, 600);
 
     // ── City 2 (track at z ≈ -248 to -308) ──
-    grassPlane(500, 115, -210, -402, this._palette.grassColor);
-    grassPlane(480,  75, -210, -167, this._palette.hillColors[0]);
-    // Hills strictly south of city 2
-    scatterHills(11111, 7, -620, -40, -345, -460);
+    grassPlane(580, 140, -210, -402, this._palette.grassColor);
+    grassPlane(540,  90, -210, -167, this._palette.hillColors[0]);
+    // Extra southern coverage
+    grassPlane(400, 100, -400, -500, this._palette.hillColors[1]);
+    scatterHills(11111, 10, -750, -30, -380, -540);
 
-    // ── Scattered small deciduous trees on the valley floors ──
+    // ── Round-about / climb approach (z ≈ -120 to 0) ──
+    grassPlane(250,  80,  80,  -80, this._palette.hillColors[2]);
+    grassPlane(200,  70, -80, -200, this._palette.hillColors[0]);
+
+    // ── Scattered deciduous trees — much denser than before ──
     const tRng = new MiniRng(55555);
     const spots = [
-      ...Array.from({ length: 14 }, () => [tRng.range(-620, -160), tRng.range(445, 525)]),
-      ...Array.from({ length: 11 }, () => [tRng.range(-600, -40),  tRng.range(-350, -450)]),
+      // City 1 north valley
+      ...Array.from({ length: 28 }, () => [tRng.range(-750, -140), tRng.range(430, 560)]),
+      // City 1 south valley
+      ...Array.from({ length: 20 }, () => [tRng.range(-700, -60),  tRng.range(200, 350)]),
+      // City 2 south valley
+      ...Array.from({ length: 24 }, () => [tRng.range(-700, -30),  tRng.range(-360, -520)]),
+      // City 2 north valley
+      ...Array.from({ length: 18 }, () => [tRng.range(-600, -40),  tRng.range(-140, -220)]),
     ];
     spots.forEach(([x, z]) => this._makeRoundTree(new THREE.Vector3(x, 0, z), tRng));
   }
@@ -725,42 +748,89 @@ export class SFEnvironment {
 
   // Spring: flower clusters scattered across grassy valley zones
   _buildFlowers() {
-    const FLOWER_COLS = [0xff88bb, 0xffdd44, 0xffffff, 0xcc88ff, 0xff6699, 0xffaa44];
+    const FLOWER_COLS = [0xff44aa, 0xffee22, 0xffffff, 0xdd66ff, 0xff2277, 0xff8800, 0xee44cc, 0xffcc00];
     const rng = new MiniRng(20241);
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0x2d7a20 });
 
+    // Larger zones, much higher density, placed so they're visible near the road
     const zones = [
-      // [xMin, xMax, zMin, zMax, count]
-      [-620, -160,  445, 525, 60],
-      [-600,  -40, -350,-450, 50],
-      [-420, -160,  200, 330, 40],
-      [-210,   0,  -130,-205, 35],
-      [-500,  400,  470, 620, 45],
+      // [xMin, xMax, zMin, zMax, clusterCount]
+      [-700, -140,  430, 560, 180],  // City 1 north
+      [-680,  -40, -350,-530, 160],  // City 2 south
+      [-500, -140,  200, 360, 130],  // City 1 south
+      [-280,   60, -130,-230, 110],  // City 2 north / roundabout
+      [-600,  380,  460, 640, 150],  // Marin headlands
     ];
 
     zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
       for (let i = 0; i < count; i++) {
         const cx = rng.range(xMin, xMax);
         const cz = rng.range(zMin, zMax);
-        const numPetals = rng.intRange(3, 7);
+        const clusterSize = rng.intRange(4, 9);
 
-        for (let k = 0; k < numPetals; k++) {
-          const stemH = rng.range(0.4, 1.0);
-          const stemGeo = new THREE.CylinderGeometry(0.04, 0.06, stemH, 4);
-          const stem    = new THREE.Mesh(stemGeo, new THREE.MeshLambertMaterial({ color: 0x2d7a20 }));
-          const ox = cx + rng.range(-1.5, 1.5);
-          const oz = cz + rng.range(-1.5, 1.5);
+        for (let k = 0; k < clusterSize; k++) {
+          const stemH = rng.range(2.0, 5.0);   // Much taller stems
+          const ox = cx + rng.range(-3.5, 3.5);
+          const oz = cz + rng.range(-3.5, 3.5);
+
+          const stem = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.12, 0.18, stemH, 4),
+            stemMat
+          );
           stem.position.set(ox, stemH / 2, oz);
           this.group.add(stem);
 
-          const headR   = rng.range(0.15, 0.32);
-          const headGeo = new THREE.SphereGeometry(headR, 5, 4);
-          const headMat = new THREE.MeshLambertMaterial({ color: FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)] });
-          const head    = new THREE.Mesh(headGeo, headMat);
-          head.position.set(ox, stemH + headR * 0.6, oz);
+          const headR   = rng.range(0.7, 1.6);  // Much bigger heads
+          const col     = FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)];
+          const headMat = new THREE.MeshLambertMaterial({ color: col });
+          const head    = new THREE.Mesh(new THREE.SphereGeometry(headR, 6, 5), headMat);
+          head.position.set(ox, stemH + headR * 0.5, oz);
           this.group.add(head);
+
+          // Yellow center
+          const centerMat = new THREE.MeshLambertMaterial({ color: 0xffee00 });
+          const center    = new THREE.Mesh(new THREE.SphereGeometry(headR * 0.28, 5, 4), centerMat);
+          center.position.set(ox, stemH + headR * 0.5, oz);
+          this.group.add(center);
         }
       }
     });
+
+    // Cherry blossom trees scattered through grassy areas — the most visible spring element
+    const blossomRng = new MiniRng(20248);
+    const blossomSpots = [
+      ...Array.from({ length: 18 }, () => [blossomRng.range(-680, -160), blossomRng.range(440, 550)]),
+      ...Array.from({ length: 15 }, () => [blossomRng.range(-650, -60),  blossomRng.range(-360, -520)]),
+      ...Array.from({ length: 12 }, () => [blossomRng.range(-480, -150), blossomRng.range(210, 350)]),
+      ...Array.from({ length: 10 }, () => [blossomRng.range(-280,  50),  blossomRng.range(-140, -220)]),
+    ];
+    blossomSpots.forEach(([x, z]) => this._makeBlossomTree(x, z, blossomRng));
+  }
+
+  _makeBlossomTree(x, z, rng) {
+    const trunkH = rng.range(6, 14);
+    const trunk  = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.5, trunkH, 5),
+      new THREE.MeshLambertMaterial({ color: 0x6b3a1e })
+    );
+    trunk.position.set(x, trunkH / 2, z);
+    this.group.add(trunk);
+
+    // 2-3 pink blossom canopy spheres
+    const layerCount = rng.intRange(2, 3);
+    const BLOSSOM_COLS = [0xffaacc, 0xff88bb, 0xffccdd, 0xff66aa, 0xffbbcc];
+    for (let i = 0; i < layerCount; i++) {
+      const cr  = rng.range(4, 8);
+      const col = BLOSSOM_COLS[Math.floor(rng.rand() * BLOSSOM_COLS.length)];
+      const canopy = new THREE.Mesh(
+        new THREE.SphereGeometry(cr, 7, 5),
+        new THREE.MeshLambertMaterial({ color: col })
+      );
+      const ox = rng.range(-2, 2);
+      const oz = rng.range(-2, 2);
+      canopy.position.set(x + ox, trunkH + cr * 0.55 + i * 2, z + oz);
+      this.group.add(canopy);
+    }
   }
 
   // Fall: colorful leaf carpet on grassy areas
@@ -769,17 +839,17 @@ export class SFEnvironment {
     const rng = new MiniRng(20242);
 
     const zones = [
-      [-620, -160,  445, 525, 200],
-      [-600,  -40, -350,-450, 180],
-      [-420, -160,  200, 330, 150],
-      [-210,   0,  -130,-205, 130],
-      [-500,  400,  470, 620, 170],
+      [-700, -140,  430, 560, 400],
+      [-680,  -40, -350,-530, 360],
+      [-500, -140,  200, 360, 300],
+      [-280,   60, -130,-230, 260],
+      [-600,  380,  460, 640, 340],
     ];
 
     zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
       for (let i = 0; i < count; i++) {
-        const w   = rng.range(0.4, 1.2);
-        const d   = rng.range(0.4, 1.2);
+        const w   = rng.range(1.5, 4.0);
+        const d   = rng.range(1.5, 4.0);
         const geo = new THREE.PlaneGeometry(w, d);
         const mat = new THREE.MeshLambertMaterial({
           color: LEAF_COLS[Math.floor(rng.rand() * LEAF_COLS.length)],
@@ -798,13 +868,16 @@ export class SFEnvironment {
   _buildSnow() {
     const snowMat = new THREE.MeshLambertMaterial({ color: 0xf0f6fa });
 
-    // Snow planes matching grassy valley zones
+    // Snow planes matching grassy valley zones (extended)
     const patches = [
-      [420, 100, -430,  480],
-      [400,  90, -420,  265],
-      [500, 115, -210, -402],
-      [480,  75, -210, -167],
-      [1200, 400,  0,   430],  // Marin snow
+      [520, 130, -430,  480],
+      [480, 110, -420,  265],
+      [300,  90, -750,  430],
+      [580, 140, -210, -402],
+      [540,  90, -210, -167],
+      [400, 100, -400, -500],
+      [1400, 450,  0,   430],  // Marin snow
+      [3000, 3000, -300, 100], // background coverage
     ];
     patches.forEach(([w, d, x, z]) => {
       const s = new THREE.Mesh(new THREE.PlaneGeometry(w, d), snowMat);
