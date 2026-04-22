@@ -27,6 +27,7 @@ export class SFEnvironment {
     this._buildBridge();
     this._buildJungle(0.10, 0.20);   // descent jungle
     this._buildCity1();
+    this._buildShortcut();            // optional alley shortcut off city1
     this._buildJungle(0.47, 0.59);   // main jungle
     this._buildCity2();
     this._buildRoundabout();
@@ -674,6 +675,225 @@ export class SFEnvironment {
     const water    = new THREE.Mesh(waterGeo, waterMat);
     water.position.set(cx, cy + 0.8 + 2.3, cz);
     this.group.add(water);
+  }
+
+  // ─────────────────────────────────────────────
+  // CITY1 SHORTCUT — alley road branching south
+  // at city1 start, rejoining at turn1 start.
+  // Exposes this.shortcutCurve for off-track check.
+  // ─────────────────────────────────────────────
+  _buildShortcut() {
+    const scPts = [
+      new THREE.Vector3(-250, 0, 368),
+      new THREE.Vector3(-252, 0, 308),
+      new THREE.Vector3(-258, 0, 252),
+      new THREE.Vector3(-298, 0, 210),
+      new THREE.Vector3(-390, 0, 197),
+      new THREE.Vector3(-498, 0, 201),
+      new THREE.Vector3(-572, 0, 232),
+      new THREE.Vector3(-614, 0, 276),
+      new THREE.Vector3(-630, 0, 310),
+    ];
+    this.shortcutCurve = new THREE.CatmullRomCurve3(scPts, false, 'catmullrom', 0.5);
+
+    const SEGS   = 220;
+    const ROAD_W = 13;
+
+    // ── Ground fill under alley (covers dark base mesh) ──
+    const gPos = [], gIdx = [];
+    for (let i = 0; i <= SEGS; i++) {
+      const t    = i / SEGS;
+      const pt   = this.shortcutCurve.getPointAt(t);
+      const tan  = this.shortcutCurve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const L = pt.clone().addScaledVector(perp,  32);
+      const R = pt.clone().addScaledVector(perp, -32);
+      gPos.push(L.x, 0, L.z, R.x, 0, R.z);
+      if (i < SEGS) {
+        const b = i * 2;
+        gIdx.push(b, b+2, b+1, b+1, b+2, b+3);
+      }
+    }
+    const gGeo = new THREE.BufferGeometry();
+    gGeo.setAttribute('position', new THREE.Float32BufferAttribute(gPos, 3));
+    gGeo.setIndex(gIdx);
+    gGeo.computeVertexNormals();
+    this.group.add(new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({ color: 0x1a1a1a })));
+
+    // ── Road surface ──
+    const rPos = [], rUvs = [], rIdx = [];
+    for (let i = 0; i <= SEGS; i++) {
+      const t    = i / SEGS;
+      const pt   = this.shortcutCurve.getPointAt(t);
+      const tan  = this.shortcutCurve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const L = pt.clone().addScaledVector(perp,  ROAD_W / 2);
+      const R = pt.clone().addScaledVector(perp, -ROAD_W / 2);
+      rPos.push(L.x, 0.04, L.z, R.x, 0.04, R.z);
+      rUvs.push(0, t * 16, 1, t * 16);
+      if (i < SEGS) {
+        const b = i * 2;
+        rIdx.push(b, b+2, b+1, b+1, b+2, b+3);
+      }
+    }
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
+    roadGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(rUvs, 2));
+    roadGeo.setIndex(rIdx);
+    roadGeo.computeVertexNormals();
+    this.group.add(new THREE.Mesh(roadGeo, new THREE.MeshLambertMaterial({ color: 0x2a2828 })));
+
+    // ── White edge lines ──
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    [ROAD_W / 2 - 0.3, -(ROAD_W / 2 - 0.3)].forEach(offset => {
+      const ePts = [];
+      for (let i = 0; i <= SEGS; i++) {
+        const t    = i / SEGS;
+        const pt   = this.shortcutCurve.getPointAt(t);
+        const tan  = this.shortcutCurve.getTangentAt(t);
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+        ePts.push(pt.clone().addScaledVector(perp, offset).setY(0.08));
+      }
+      this.group.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ePts), SEGS, 0.1, 4, false),
+        dashMat
+      ));
+    });
+
+    // ── Center dashes ──
+    for (let i = 0; i < SEGS - 4; i += 8) {
+      const dashPts = [];
+      for (let k = 0; k <= 6; k++) {
+        const t = Math.min((i + k * 3 / 8) / SEGS, 0.9999);
+        const pt = this.shortcutCurve.getPointAt(t);
+        dashPts.push(new THREE.Vector3(pt.x, 0.08, pt.z));
+      }
+      this.group.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dashPts), 4, 0.12, 4, false),
+        dashMat
+      ));
+    }
+
+    // ── Green arrow painted on main road at junction entry ──
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0x22ee55, side: THREE.DoubleSide });
+    const arrowBody = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 6.5), arrowMat);
+    arrowBody.rotation.x = -Math.PI / 2;
+    arrowBody.position.set(-250, 0.09, 372);
+    this.group.add(arrowBody);
+    const arrowHead = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), arrowMat);
+    arrowHead.rotation.x = -Math.PI / 2;
+    arrowHead.position.set(-250, 0.09, 366.5);
+    this.group.add(arrowHead);
+
+    // ── Entry sign posts (both sides of junction) ──
+    const postMat  = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
+    const boardMat = new THREE.MeshLambertMaterial({ color: 0x158820 });
+    [-1, 1].forEach(side => {
+      const px = -250 + side * 10;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 6, 6), postMat);
+      post.position.set(px, 3, 363);
+      this.group.add(post);
+      const board = new THREE.Mesh(new THREE.BoxGeometry(6.5, 2.4, 0.28), boardMat);
+      board.position.set(px, 7.2, 363);
+      this.group.add(board);
+    });
+
+    // ── Alley buildings ──
+    this._buildAlleyBuildings();
+  }
+
+  _buildAlleyBuildings() {
+    const rng = new MiniRng(77001);
+    const MAT_COLS = [
+      0x8a8a7a, // concrete
+      0x7a6050, // brick
+      0x606878, // slate
+      0x4a6878, // glass teal
+      0x6a7850, // moss concrete
+      0x787060, // tan stone
+      0x5a5a6a, // dark concrete
+      0x6a4a40, // terracotta
+      0x505868, // blue-gray
+      0x706050, // brownstone
+    ];
+
+    const SEGS = 220;
+    let distAcc = 0;
+    let prevPt  = this.shortcutCurve.getPointAt(0);
+
+    for (let i = 1; i <= SEGS; i++) {
+      const t  = i / SEGS;
+      const pt = this.shortcutCurve.getPointAt(t);
+      distAcc += pt.distanceTo(prevPt);
+      prevPt   = pt.clone();
+
+      if (distAcc < 12) continue;
+      distAcc = 0;
+
+      const tan   = this.shortcutCurve.getTangentAt(t);
+      const perp  = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const angle = Math.atan2(tan.x, tan.z);
+
+      [-1, 1].forEach(side => {
+        const w    = rng.range(10, 20);
+        const h    = rng.range(18, 42);
+        const d    = rng.range(5, 9);
+        const dist = 6.5 + d * 0.5 + rng.range(0.5, 2.0);
+
+        const bPos = pt.clone().addScaledVector(perp, dist * side);
+        const col  = MAT_COLS[Math.floor(rng.rand() * MAT_COLS.length)];
+
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshLambertMaterial({ color: col })
+        );
+        mesh.rotation.y = angle;
+        mesh.position.set(bPos.x, h / 2, bPos.z);
+        this.group.add(mesh);
+
+        // Setback upper section on taller buildings
+        if (h > 26 && rng.rand() < 0.55) {
+          const sh = rng.range(6, 14);
+          const sw = w * rng.range(0.45, 0.70);
+          const sb = new THREE.Mesh(
+            new THREE.BoxGeometry(sw, sh, d * 0.85),
+            new THREE.MeshLambertMaterial({ color: this._adjustBrightness(col, 1.12) })
+          );
+          sb.rotation.y = angle;
+          sb.position.set(bPos.x, h + sh / 2, bPos.z);
+          this.group.add(sb);
+        }
+
+        // Rooftop water tower
+        if (rng.rand() < 0.32) {
+          const twH = rng.range(2, 5);
+          const twR = rng.range(0.7, 1.5);
+          const tw  = new THREE.Mesh(
+            new THREE.CylinderGeometry(twR * 0.8, twR, twH, 7),
+            new THREE.MeshLambertMaterial({ color: 0x7a6040 })
+          );
+          const lateralOff = rng.range(-w * 0.28, w * 0.28);
+          const perpDir = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+          const twPos   = bPos.clone().addScaledVector(perpDir, lateralOff * 0);
+          tw.position.set(bPos.x + lateralOff * Math.cos(angle), h + twH / 2 + 0.2, bPos.z + lateralOff * Math.sin(angle));
+          this.group.add(tw);
+        }
+
+        // Dark window strips (3 rows of horizontal bands)
+        const winMat = new THREE.MeshLambertMaterial({ color: 0x1a2a3a });
+        const winRows = Math.min(6, Math.floor(h / 7));
+        for (let row = 1; row <= winRows; row++) {
+          const wy = row * (h / (winRows + 1));
+          const wStrip = new THREE.Mesh(
+            new THREE.BoxGeometry(w * 0.75, 1.6, d + 0.1),
+            winMat
+          );
+          wStrip.rotation.y = angle;
+          wStrip.position.set(bPos.x, wy, bPos.z);
+          this.group.add(wStrip);
+        }
+      });
+    }
   }
 
   // ─────────────────────────────────────────────

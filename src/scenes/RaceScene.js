@@ -355,18 +355,23 @@ export class RaceScene {
       this._offTrackCooldown = Math.max(0, this._offTrackCooldown - dt);
 
       if (distFromTrack > RaceScene.FAR_OFF_DIST && this._offTrackCooldown <= 0) {
-        // Apply +2 second penalty
-        this._penaltySeconds += 2;
-        this._offTrackCooldown = 4; // 4-second grace before next reset
+        if (this._isOnShortcut(this.car.position)) {
+          // On the shortcut alley — no penalty, brief cooldown to avoid repeated checks
+          this._offTrackCooldown = 1;
+        } else {
+          // Apply +2 second penalty
+          this._penaltySeconds += 2;
+          this._offTrackCooldown = 4; // 4-second grace before next reset
 
-        // Reset car to nearest track point, facing track direction
-        const tan = this.track.curve.getTangentAt(nearT);
-        this.car.speed *= 0.2;
-        this.car.position.set(trackPt.x, trackPt.y, trackPt.z);
-        this.car.mesh.position.copy(this.car.position);
-        this.car.angle = Math.atan2(tan.x, tan.z);
+          // Reset car to nearest track point, facing track direction
+          const tan = this.track.curve.getTangentAt(nearT);
+          this.car.speed *= 0.2;
+          this.car.position.set(trackPt.x, trackPt.y, trackPt.z);
+          this.car.mesh.position.copy(this.car.position);
+          this.car.angle = Math.atan2(tan.x, tan.z);
 
-        this._showPenaltyFlash();
+          this._showPenaltyFlash();
+        }
       }
     }
 
@@ -496,6 +501,20 @@ export class RaceScene {
     if (speedEl)    speedEl.textContent    = car.kmh;
     if (progressEl) progressEl.style.width = `${Math.min(this._accProgress, 1) * 100}%`;
     if (timerEl)    timerEl.textContent    = this._raceStarted ? this._formatTime(this._raceTime) : '0:00.000';
+  }
+
+  // Returns true if pos is within 15 units of the SF shortcut road center line.
+  _isOnShortcut(pos) {
+    if (!this.env || !this.env.shortcutCurve) return false;
+    const SAMPLES = 80;
+    const R2 = 15 * 15;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const pt = this.env.shortcutCurve.getPointAt(i / SAMPLES);
+      const dx = pos.x - pt.x;
+      const dz = pos.z - pt.z;
+      if (dx * dx + dz * dz < R2) return true;
+    }
+    return false;
   }
 
   _showPenaltyFlash() {
