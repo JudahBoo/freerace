@@ -12,10 +12,12 @@ import { RaceModeScene }    from './scenes/RaceModeScene.js';
 import { MultiplayerScene } from './scenes/MultiplayerScene.js';
 import { FriendSearchScene }from './scenes/FriendSearchScene.js';
 import { LeaderboardScene } from './scenes/LeaderboardScene.js';
+import { FPSHubScene }      from './scenes/FPSHubScene.js';
 
 const SCENES = {
   login:          LoginScene,
   menu:           MenuScene,
+  fpshub:         FPSHubScene,
   driver:         DriverScene,
   garage:         GarageScene,
   mapselect:      MapSelectScene,

@@ -36,6 +36,7 @@ export class MenuScene {
       <div style="color:var(--muted);font-size:0.8rem;letter-spacing:2px;margin-bottom:8px;">🪙 ${this.game.playerData.tokens} tokens</div>
 
       <div class="menu-buttons">
+        <button class="btn btn-primary" id="btn-fps" style="background:linear-gradient(135deg,#00c896,#0077cc);border-color:#00c896;letter-spacing:2px;">&#9675; FPS HUB</button>
         <button class="btn btn-primary" id="btn-race">&#9654; Race</button>
         <button class="btn btn-secondary" id="btn-driver">${driver.name ? '&#9998; Edit Driver' : '&#43; Create Driver'}</button>
         <button class="btn btn-secondary" id="btn-garage">&#9881; Garage</button>
@@ -45,6 +46,8 @@ export class MenuScene {
     `;
 
     document.getElementById('ui-root').appendChild(this.el);
+
+    this.el.querySelector('#btn-fps').addEventListener('click', () => this.game.setState('fpshub'));
 
     this.el.querySelector('#btn-race').addEventListener('click', () => {
       if (!this.game.playerData.driver.name) {
