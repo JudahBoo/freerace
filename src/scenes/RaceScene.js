@@ -4,7 +4,9 @@ import { Track }          from '../world/Track.js';
 import { SFEnvironment }  from '../world/SFEnvironment.js';
 import { NYTrack }        from '../world/NYTrack.js';
 import { NYEnvironment }  from '../world/NYEnvironment.js';
-import { CAR_DEFS }       from '../data/cars.js';
+import { CAR_DEFS }        from '../data/cars.js';
+import { MobileControls }  from '../entities/MobileControls.js';
+import { BotCar }          from '../entities/BotCar.js';
 
 export class RaceScene {
   constructor(game) {
@@ -34,10 +36,16 @@ export class RaceScene {
     this._finishTimer   = 0;
 
     // Time limit + off-track
-    this._penaltySeconds    = 0;   // accumulated +2s penalties
-    this._offTrackCooldown  = 0;   // seconds until next off-track can trigger
+    this._penaltySeconds    = 0;
+    this._offTrackCooldown  = 0;
     this._dnf               = false;
     this._warningActive     = false;
+
+    // Bot race
+    this._botCar              = null;
+    this._botStarted          = false;
+    this._botFinishedNotified = false;
+    this._botRaceTime         = 0;
   }
 
   // ── Thresholds ────────────────────────────────────────────────
@@ -57,6 +65,9 @@ export class RaceScene {
 
     document.getElementById('game-canvas').classList.add('active');
     this._hud.classList.add('active');
+
+    this._mobileControls = new MobileControls(this.input);
+    this._mobileControls.init();
 
     this._onKeyDown = (e) => {
       if (e.code === 'Escape') this._togglePause();
@@ -117,6 +128,11 @@ export class RaceScene {
     const { position, angle } = this.track.getStartTransform();
     this.car.place(position.x, position.y, position.z, angle);
 
+    // Bot car (AI mode)
+    if (this.game._raceMode === 'bot' && this.game._botCarDef) {
+      this._botCar = new BotCar(this.scene, this.track, this.game._botCarDef, this.game._botDifficulty || 'medium');
+    }
+
     // Init tracking
     this._prevT = this.track.getNearestT(this.car.position);
 
@@ -140,6 +156,21 @@ export class RaceScene {
 
   _buildHUD() {
     const { driver } = this.game.playerData;
+    const isBotRace  = this.game._raceMode === 'bot';
+    const botDef     = this.game._botCarDef;
+    const diffLabel  = ({ easy:'🟢 EASY', medium:'🟡 MEDIUM', hard:'🔴 HARD' })[this.game._botDifficulty] || '🟡 MEDIUM';
+
+    const botHtml = isBotRace && botDef ? `
+      <div id="hud-rival" style="
+        position:absolute;top:26px;left:50%;transform:translateX(-50%);
+        display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;">
+        <div style="color:#ff6600;font-size:0.6rem;font-weight:700;letter-spacing:2px;">
+          🤖 ${botDef.name} · ${diffLabel}
+        </div>
+        <div style="width:180px;height:5px;background:rgba(255,255,255,0.12);border-radius:3px;">
+          <div id="hud-bot-progress" style="height:100%;width:0%;background:#ff6600;border-radius:3px;transition:width 0.15s;"></div>
+        </div>
+      </div>` : '';
 
     this._hud = document.createElement('div');
     this._hud.id = 'hud';
@@ -147,6 +178,8 @@ export class RaceScene {
       <div class="hud-progress-bar">
         <div class="hud-progress-fill" id="hud-progress" style="width:0%"></div>
       </div>
+
+      ${botHtml}
 
       <div class="hud-timer" id="hud-timer">0:00.000</div>
 
@@ -174,6 +207,12 @@ export class RaceScene {
       <div class="hud-esc">
         <button class="btn btn-ghost" id="btn-pause-hud" style="pointer-events:all">&#9646;&#9646; Pause</button>
       </div>
+
+      <!-- Finish / top-time notice -->
+      <div id="hud-finish-notice" style="
+        display:none;position:absolute;top:38%;left:50%;transform:translate(-50%,-50%);
+        text-align:center;pointer-events:none;
+      "></div>
 
       <!-- Off-track penalty flash -->
       <div id="hud-off-track-flash" style="
@@ -284,6 +323,10 @@ export class RaceScene {
     if (!this._raceStarted && this._accProgress > 0.03) {
       this._raceStarted   = true;
       this._raceStartTime = performance.now() / 1000;
+      if (this._botCar && !this._botStarted) {
+        this._botStarted = true;
+        this._botCar.start();
+      }
     }
 
     if (this._raceStarted && !this._raceFinished && !this._dnf) {
@@ -343,11 +386,71 @@ export class RaceScene {
       }
     }
 
+    // ── Bot update ──
+    if (this._botCar) {
+      this._botCar.update(dt);
+      if (this._raceStarted) this._botRaceTime += dt;
+
+      const botEl = document.getElementById('hud-bot-progress');
+      if (botEl) botEl.style.width = `${Math.min(this._botCar.progress / 0.98, 1) * 100}%`;
+
+      if (this._botCar.finished && !this._botFinishedNotified) {
+        this._botFinishedNotified = true;
+        const notice = document.getElementById('hud-finish-notice');
+        if (notice) {
+          notice.style.display = 'block';
+          notice.innerHTML = `
+            <div style="font-size:1.8rem;font-weight:900;color:#ff6600;text-shadow:0 0 20px rgba(255,102,0,0.8);">🤖 BOT FINISHED!</div>
+            <div style="color:#aaa;font-size:0.82rem;margin-top:6px;">Keep racing for your time!</div>`;
+          setTimeout(() => { notice.style.display = 'none'; }, 3000);
+        }
+      }
+    }
+
     // ── Lap finish ──
     if (this._raceStarted && !this._raceFinished && !this._dnf && this._accProgress >= 0.98) {
       this._raceFinished = true;
       this.game.playerData.lastRaceTime = this._raceTime;
       this.game.playerData.raceResult   = 'finished';
+
+      // Record leaderboard & check top time
+      const isTop = this.game.recordTime(this._mapId, this._raceTime);
+      this.game._isTopTime = isTop;
+      this.game._extraSpin = isTop;
+
+      // Store bot result
+      if (this._botCar) {
+        this.game._botResult = {
+          finished:   this._botCar.finished,
+          finishTime: this._botCar.finishTime,
+          carDef:     this.game._botCarDef,
+        };
+      } else {
+        this.game._botResult = null;
+      }
+
+      // Broadcast result for friend races
+      if (this.game._raceMode === 'friend' && this.game._channel) {
+        this.game._channel.postMessage({
+          type: 'race_result',
+          username: this.game.currentUser,
+          map: this._mapId,
+          time: this._raceTime,
+        });
+      }
+
+      // Show top time flash
+      if (isTop) {
+        const notice = document.getElementById('hud-finish-notice');
+        if (notice) {
+          notice.style.display = 'block';
+          notice.innerHTML = `
+            <div style="font-size:2.2rem;font-weight:900;color:#ffd700;
+              text-shadow:0 0 30px rgba(255,215,0,0.9);letter-spacing:4px;">🏆 TOP TIME!</div>
+            <div style="color:#ffb700;font-size:0.85rem;margin-top:6px;letter-spacing:2px;">LEADERBOARD RECORD</div>`;
+        }
+      }
+
       setTimeout(() => this.game.setState('results'), 2000);
     }
 
@@ -412,6 +515,10 @@ export class RaceScene {
 
   destroy() {
     window.removeEventListener('keydown', this._onKeyDown);
+    this._mobileControls?.destroy();
+    this._mobileControls = null;
+    this._botCar?.destroy();
+    this._botCar = null;
     document.getElementById('game-canvas').classList.remove('active');
     this._hud?.classList.remove('active');
     this._hud?.remove();

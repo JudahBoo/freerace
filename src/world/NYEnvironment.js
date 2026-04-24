@@ -417,8 +417,8 @@ export class NYEnvironment {
 
     // Position island in the bay — midway along the waterfront
     // Track straightaway at z=435, heading -X from x=-200 to x=-820
-    // Bay is north (z > 435). Place statue at z=620, x=-500
-    g.position.set(-500, -2, 620);
+    // Bay is south (z < 435). Place statue at z=250, x=-500
+    g.position.set(-500, -2, 250);
     this.group.add(g);
   }
 

@@ -51,8 +51,8 @@ export class MarketScene {
       const card = document.createElement('div');
       card.className = `car-card${isOwned ? ' owned' : ''}`;
 
-      const speedPct = Math.round((car.maxSpeed / 85) * 100);
-      const accelPct = Math.round((car.accel    / 48) * 100);
+      const speedPct = Math.min(Math.round((car.maxSpeed / 130) * 100), 100);
+      const accelPct = Math.min(Math.round((car.accel    / 72)  * 100), 100);
 
       let actionHtml;
       if (isActive) {

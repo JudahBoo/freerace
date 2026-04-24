@@ -5,12 +5,13 @@ export class ResultsScene {
     this.game = game;
     this.el   = null;
 
-    this._wheelCanvas  = null;
-    this._wheelCtx     = null;
+    this._wheelCanvas   = null;
+    this._wheelCtx      = null;
     this._wheelRotation = 0;
-    this._spinning     = false;
-    this._spinAnim     = null;
-    this._prizeApplied = false;
+    this._spinning      = false;
+    this._spinAnim      = null;
+    this._spinsUsed     = 0;
+    this._spinsAllowed  = 1;
   }
 
   init() {
@@ -20,6 +21,9 @@ export class ResultsScene {
     this.el.className = 'screen';
     this.el.style.overflowY = 'auto';
     document.getElementById('ui-root').appendChild(this.el);
+
+    this._spinsAllowed = this.game._extraSpin ? 2 : 1;
+    this._spinsUsed    = 0;
 
     if (pd.raceResult === 'dnf') {
       this._buildDNF();
@@ -72,18 +76,76 @@ export class ResultsScene {
   }
 
   _buildWin() {
-    const pd      = this.game.playerData;
-    const timeStr = this._formatTime(pd.lastRaceTime || 0);
+    const pd       = this.game.playerData;
+    const timeStr  = this._formatTime(pd.lastRaceTime || 0);
+    const isTop    = this.game._isTopTime;
+    const botRes   = this.game._botResult;
+    const friendRes= this.game._friendRaceResult;
+    const fmt      = (t) => this._formatTime(t);
+
+    // Top time banner
+    const topBanner = isTop ? `
+      <div style="background:linear-gradient(90deg,#b8860b,#ffd700,#b8860b);color:#000;
+        font-size:1rem;font-weight:900;letter-spacing:4px;padding:10px 24px;
+        border-radius:6px;margin-bottom:20px;text-align:center;">
+        🏆 TOP TIME — LEADERBOARD RECORD!
+      </div>` : '';
+
+    // Bot race comparison
+    const botHtml = botRes ? (() => {
+      const playerWon = !botRes.finished || pd.lastRaceTime < botRes.finishTime;
+      const botTimeStr = botRes.finished ? fmt(botRes.finishTime) : 'DNF';
+      return `
+        <div class="panel" style="padding:16px 20px;margin-bottom:24px;text-align:left;">
+          <div style="font-size:0.72rem;font-weight:700;letter-spacing:3px;color:var(--muted);margin-bottom:12px;">BOT RACE RESULT</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <div>
+              <div style="font-size:0.8rem;color:var(--muted);">You</div>
+              <div style="font-size:1.2rem;font-weight:900;color:var(--neon);">${timeStr}</div>
+            </div>
+            <div style="font-size:1.4rem;">${playerWon ? '🏆' : '😞'}</div>
+            <div style="text-align:right;">
+              <div style="font-size:0.8rem;color:var(--muted);">🤖 Bot (${botRes.carDef?.name || 'Rival'})</div>
+              <div style="font-size:1.2rem;font-weight:900;color:#ff6600;">${botTimeStr}</div>
+            </div>
+          </div>
+          <div style="text-align:center;margin-top:12px;font-weight:900;font-size:0.9rem;letter-spacing:2px;color:${playerWon ? 'var(--neon)' : '#ef4444'};">
+            ${playerWon ? '🏆 YOU WIN!' : '🤖 BOT WINS!'}
+          </div>
+        </div>`;
+    })() : '';
+
+    // Friend race comparison
+    const friendHtml = (this.game._raceMode === 'friend') ? `
+      <div class="panel" style="padding:16px 20px;margin-bottom:24px;text-align:left;" id="friend-result-panel">
+        <div style="font-size:0.72rem;font-weight:700;letter-spacing:3px;color:var(--muted);margin-bottom:12px;">FRIEND RACE</div>
+        ${friendRes ? (() => {
+          const playerWon = pd.lastRaceTime < friendRes.time;
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+              <div><div style="font-size:0.8rem;color:var(--muted);">You</div>
+                <div style="font-size:1.2rem;font-weight:900;color:var(--neon);">${timeStr}</div></div>
+              <div style="font-size:1.4rem;">${playerWon ? '🏆' : '😞'}</div>
+              <div style="text-align:right;"><div style="font-size:0.8rem;color:var(--muted);">${friendRes.username}</div>
+                <div style="font-size:1.2rem;font-weight:900;color:#8338ec;">${fmt(friendRes.time)}</div></div>
+            </div>
+            <div style="text-align:center;margin-top:12px;font-weight:900;font-size:0.9rem;letter-spacing:2px;color:${playerWon ? 'var(--neon)' : '#ef4444'};">
+              ${playerWon ? '🏆 YOU WIN!' : `${friendRes.username} WINS!`}
+            </div>`;
+        })() : `<div style="color:var(--muted);font-size:0.82rem;">Waiting for ${this.game._friendOpponent || 'friend'} to finish...</div>`}
+      </div>` : '';
 
     this.el.innerHTML = `
       <div style="text-align:center;padding:40px 20px;max-width:640px;width:100%;">
+        ${topBanner}
         <div class="panel-title" style="justify-content:center;font-size:2rem;margin-bottom:8px">
           🏁 Race Complete!
         </div>
         <div class="results-time">${timeStr}</div>
-        <div style="color:var(--muted);letter-spacing:3px;font-size:0.75rem;text-transform:uppercase;margin-bottom:32px">
-          Race Time
+        <div style="color:var(--muted);letter-spacing:3px;font-size:0.75rem;text-transform:uppercase;margin-bottom:24px">
+          ${isTop ? '🏆 New Leaderboard Record!' : 'Race Time'}
         </div>
+        ${botHtml}${friendHtml}
 
         <div style="margin-bottom:32px;">
           <div style="font-size:1rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--neon);margin-bottom:16px;">
@@ -124,7 +186,17 @@ export class ResultsScene {
 
     this.el.querySelector('#btn-claim').addEventListener('click', () => {
       document.getElementById('prize-reveal').classList.remove('show');
-      document.getElementById('action-grid').style.display = 'grid';
+      if (this._spinsUsed < this._spinsAllowed) {
+        const spinBtn = document.getElementById('btn-spin');
+        if (spinBtn) {
+          spinBtn.disabled = false;
+          spinBtn.textContent = '🏆 BONUS SPIN!';
+          spinBtn.style.background = '#b8860b';
+        }
+      } else {
+        this.game._extraSpin = false;
+        document.getElementById('action-grid').style.display = 'grid';
+      }
     });
   }
 
@@ -202,8 +274,9 @@ export class ResultsScene {
   }
 
   _spin() {
-    if (this._spinning || this._prizeApplied) return;
+    if (this._spinning || this._spinsUsed >= this._spinsAllowed) return;
     this._spinning = true;
+    this._spinsUsed++;
     document.getElementById('btn-spin').disabled = true;
 
     // Pick winner
@@ -239,7 +312,6 @@ export class ResultsScene {
         this._spinAnim = requestAnimationFrame(animate);
       } else {
         this._spinning = false;
-        this._prizeApplied = true;
         this._applyPrize(PRIZE_SEGMENTS[winIdx]);
       }
     };
