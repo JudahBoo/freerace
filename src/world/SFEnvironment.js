@@ -1,6 +1,6 @@
 import * as THREE from 'three';
+import { getSeason, SEASON_CONFIG } from './Seasons.js';
 
-const TREE_GREENS = [0x1a4a1a, 0x2d6a2d, 0x0f3a0f, 0x3a6b20, 0x1e5c1e];
 const PAINTED_LADIES = [0xe8a0b4, 0xf2d06b, 0x8fbcdb, 0xa8c9a5, 0xe07b39, 0xd4a0c8, 0xf0e68c, 0xb8d4e8, 0xe8c4a0, 0x9ecfba];
 
 function rnd(min, max) { return min + Math.random() * (max - min); }
@@ -9,11 +9,13 @@ function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 export class SFEnvironment {
   constructor(scene, track) {
-    this.scene   = scene;
-    this.track   = track;
-    this.curve   = track.curve;
-    this.group   = new THREE.Group();
+    this.scene    = scene;
+    this.track    = track;
+    this.curve    = track.curve;
+    this.group    = new THREE.Group();
     this.trolleys = [];
+    this._season  = getSeason();
+    this._palette = SEASON_CONFIG[this._season];
 
     scene.add(this.group);
     this._build();
@@ -25,10 +27,12 @@ export class SFEnvironment {
     this._buildBridge();
     this._buildJungle(0.10, 0.20);   // descent jungle
     this._buildCity1();
+    this._buildShortcut();            // optional alley shortcut off city1
     this._buildJungle(0.47, 0.59);   // main jungle
     this._buildCity2();
     this._buildRoundabout();
     this._buildClimb();
+    this._buildSeasonalExtras();
   }
 
   // ─────────────────────────────────────────────
@@ -92,12 +96,10 @@ export class SFEnvironment {
     this.group.add(bay2);
 
     // ── Marin Headlands — rolling green hills north of the bridge ──
-    // Bridge ends at z=240; keep hills at z >= 320 with capped radius
-    // so they never reach back toward the bridge deck.
-    const marinGreen = [0x3d7a2d, 0x4a8f38, 0x2d6120, 0x56a040, 0x3a6e28];
+    const marinGreen = this._palette.marinGreen;
     const rng = new MiniRng(54321);
     for (let i = 0; i < 12; i++) {
-      const r   = rng.range(8, 14);    // small radius — keeps footprint well clear of descent
+      const r   = rng.range(8, 14);
       const col = marinGreen[i % marinGreen.length];
       const geo = new THREE.SphereGeometry(r, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2);
       const mat = new THREE.MeshLambertMaterial({ color: col });
@@ -109,7 +111,7 @@ export class SFEnvironment {
 
     // Marin ground plane
     const marinGeo = new THREE.PlaneGeometry(1200, 400);
-    const marinMat = new THREE.MeshLambertMaterial({ color: 0x3d7a2d });
+    const marinMat = new THREE.MeshLambertMaterial({ color: this._palette.grassColor });
     const marin    = new THREE.Mesh(marinGeo, marinMat);
     marin.rotation.x = -Math.PI / 2;
     marin.position.set(0, 0.02, 430);
@@ -131,7 +133,7 @@ export class SFEnvironment {
   // City 1 track: z ≈ 368–390  City 2 track: z ≈ -248 to -308
   // ─────────────────────────────────────────────
   _buildGrassyValleys() {
-    const hillCols = [0x4a8f38, 0x3d7a2d, 0x56a040, 0x3a7028, 0x4f9040];
+    const hillCols = this._palette.hillColors;
 
     const grassPlane = (w, d, x, z, col) => {
       const m = new THREE.Mesh(
@@ -157,27 +159,45 @@ export class SFEnvironment {
       }
     };
 
+    // Large background ground plane to prevent visible edges
+    const bgGround = new THREE.Mesh(
+      new THREE.PlaneGeometry(3000, 3000),
+      new THREE.MeshLambertMaterial({ color: this._palette.grassColor })
+    );
+    bgGround.rotation.x = -Math.PI / 2;
+    bgGround.position.set(-300, -0.1, 100);
+    this.group.add(bgGround);
+
     // ── City 1 (track at z ≈ 368–390) ──
-    // North strip: z = 430–530, safe clearance ≥ 40 units from track edge
-    grassPlane(420, 100, -430, 480, 0x3d7a2d);
-    // South strip: z = 200–330, safe clearance ≥ 38 units
-    grassPlane(400,  90, -420, 265, 0x4a8f38);
-    // Hills strictly north of city 1 — zMin=500 so max footprint (28*2.0=56) can't reach z=390
-    scatterHills(88888, 8, -620, -170, 500, 580);
+    grassPlane(520, 130, -430, 480, this._palette.grassColor);
+    grassPlane(480, 110, -420, 265, this._palette.hillColors[0]);
+    // Far sides of City 1 — extra coverage
+    grassPlane(300,  90, -750,  430, this._palette.hillColors[1]);
+    grassPlane(280,  80, -750,  300, this._palette.hillColors[2]);
+    scatterHills(88888, 12, -750, -150, 490, 600);
 
     // ── City 2 (track at z ≈ -248 to -308) ──
-    // South strip: z = -345 to -460, safe clearance ≥ 37 units
-    grassPlane(500, 115, -210, -402, 0x3d7a2d);
-    // North strip: z = -130 to -205, safe clearance ≥ 43 units
-    grassPlane(480,  75, -210, -167, 0x4a8835);
-    // Hills strictly south of city 2
-    scatterHills(11111, 7, -620, -40, -345, -460);
+    grassPlane(580, 140, -210, -402, this._palette.grassColor);
+    grassPlane(540,  90, -210, -167, this._palette.hillColors[0]);
+    // Extra southern coverage
+    grassPlane(400, 100, -400, -500, this._palette.hillColors[1]);
+    scatterHills(11111, 10, -750, -30, -380, -540);
 
-    // ── Scattered small deciduous trees on the valley floors ──
+    // ── Round-about / climb approach (z ≈ -120 to 0) ──
+    grassPlane(250,  80,  80,  -80, this._palette.hillColors[2]);
+    grassPlane(200,  70, -80, -200, this._palette.hillColors[0]);
+
+    // ── Scattered deciduous trees — much denser than before ──
     const tRng = new MiniRng(55555);
     const spots = [
-      ...Array.from({ length: 14 }, () => [tRng.range(-620, -160), tRng.range(445, 525)]),
-      ...Array.from({ length: 11 }, () => [tRng.range(-600, -40),  tRng.range(-350, -450)]),
+      // City 1 north valley
+      ...Array.from({ length: 28 }, () => [tRng.range(-750, -140), tRng.range(430, 560)]),
+      // City 1 south valley
+      ...Array.from({ length: 20 }, () => [tRng.range(-700, -60),  tRng.range(200, 350)]),
+      // City 2 south valley
+      ...Array.from({ length: 24 }, () => [tRng.range(-700, -30),  tRng.range(-360, -520)]),
+      // City 2 north valley
+      ...Array.from({ length: 18 }, () => [tRng.range(-600, -40),  tRng.range(-140, -220)]),
     ];
     spots.forEach(([x, z]) => this._makeRoundTree(new THREE.Vector3(x, 0, z), tRng));
   }
@@ -193,7 +213,7 @@ export class SFEnvironment {
     this.group.add(trunk);
 
     const canopyR = rng.range(3, 6);
-    const cols    = [0x3a7a28, 0x4a8c35, 0x2e6320, 0x58a040, 0x4d9438];
+    const cols    = this._palette.roundTreeColors;
     const canopy  = new THREE.Mesh(
       new THREE.SphereGeometry(canopyR, 7, 5),
       new THREE.MeshLambertMaterial({ color: cols[Math.floor(rng.rand() * cols.length)] })
@@ -331,7 +351,14 @@ export class SFEnvironment {
           const offset = rng.range(18, 38) * side;
           const pos    = pt.clone().addScaledVector(perp, offset);
           pos.y = 0;
-          rng.rand() < 0.20 ? this._makePalm(pos, rng) : this._makeTree(pos, rng);
+          if (rng.rand() < 0.20) {
+            this._makePalm(pos, rng);
+          } else if (this._season === 'spring' && rng.rand() < 0.40) {
+            // 40% of jungle trees become pink cherry blossoms in spring
+            this._makeBlossomTree(pos.x, pos.z, rng);
+          } else {
+            this._makeTree(pos, rng);
+          }
         }
 
         // Occasional bush — also kept clear of road (15 units min)
@@ -342,7 +369,7 @@ export class SFEnvironment {
           const r = rng.range(1, 2.5);
           const bush = new THREE.Mesh(
             new THREE.SphereGeometry(r, 6, 4),
-            new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) })
+            new THREE.MeshLambertMaterial({ color: pick(this._palette.bushColors) })
           );
           bush.position.set(bushPos.x, r * 0.5, bushPos.z);
           this.group.add(bush);
@@ -364,7 +391,7 @@ export class SFEnvironment {
     const canopyH = rng.range(12, 20);
     const canopyR = rng.range(3, 6);
     const canopyGeo = new THREE.ConeGeometry(canopyR, canopyH, 7);
-    const canopyMat = new THREE.MeshLambertMaterial({ color: pick(TREE_GREENS) });
+    const canopyMat = new THREE.MeshLambertMaterial({ color: pick(this._palette.treeColors) });
     const canopy = new THREE.Mesh(canopyGeo, canopyMat);
     canopy.position.set(pos.x, trunkH + canopyH / 2 - 1, pos.z);
     this.group.add(canopy);
@@ -651,6 +678,225 @@ export class SFEnvironment {
   }
 
   // ─────────────────────────────────────────────
+  // CITY1 SHORTCUT — alley road branching south
+  // at city1 start, rejoining at turn1 start.
+  // Exposes this.shortcutCurve for off-track check.
+  // ─────────────────────────────────────────────
+  _buildShortcut() {
+    const scPts = [
+      new THREE.Vector3(-250, 0, 368),
+      new THREE.Vector3(-252, 0, 308),
+      new THREE.Vector3(-258, 0, 252),
+      new THREE.Vector3(-298, 0, 210),
+      new THREE.Vector3(-390, 0, 197),
+      new THREE.Vector3(-498, 0, 201),
+      new THREE.Vector3(-572, 0, 232),
+      new THREE.Vector3(-614, 0, 276),
+      new THREE.Vector3(-630, 0, 310),
+    ];
+    this.shortcutCurve = new THREE.CatmullRomCurve3(scPts, false, 'catmullrom', 0.5);
+
+    const SEGS   = 220;
+    const ROAD_W = 13;
+
+    // ── Ground fill under alley (covers dark base mesh) ──
+    const gPos = [], gIdx = [];
+    for (let i = 0; i <= SEGS; i++) {
+      const t    = i / SEGS;
+      const pt   = this.shortcutCurve.getPointAt(t);
+      const tan  = this.shortcutCurve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const L = pt.clone().addScaledVector(perp,  32);
+      const R = pt.clone().addScaledVector(perp, -32);
+      gPos.push(L.x, 0, L.z, R.x, 0, R.z);
+      if (i < SEGS) {
+        const b = i * 2;
+        gIdx.push(b, b+2, b+1, b+1, b+2, b+3);
+      }
+    }
+    const gGeo = new THREE.BufferGeometry();
+    gGeo.setAttribute('position', new THREE.Float32BufferAttribute(gPos, 3));
+    gGeo.setIndex(gIdx);
+    gGeo.computeVertexNormals();
+    this.group.add(new THREE.Mesh(gGeo, new THREE.MeshLambertMaterial({ color: 0x1a1a1a })));
+
+    // ── Road surface ──
+    const rPos = [], rUvs = [], rIdx = [];
+    for (let i = 0; i <= SEGS; i++) {
+      const t    = i / SEGS;
+      const pt   = this.shortcutCurve.getPointAt(t);
+      const tan  = this.shortcutCurve.getTangentAt(t);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const L = pt.clone().addScaledVector(perp,  ROAD_W / 2);
+      const R = pt.clone().addScaledVector(perp, -ROAD_W / 2);
+      rPos.push(L.x, 0.04, L.z, R.x, 0.04, R.z);
+      rUvs.push(0, t * 16, 1, t * 16);
+      if (i < SEGS) {
+        const b = i * 2;
+        rIdx.push(b, b+2, b+1, b+1, b+2, b+3);
+      }
+    }
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(rPos, 3));
+    roadGeo.setAttribute('uv',       new THREE.Float32BufferAttribute(rUvs, 2));
+    roadGeo.setIndex(rIdx);
+    roadGeo.computeVertexNormals();
+    this.group.add(new THREE.Mesh(roadGeo, new THREE.MeshLambertMaterial({ color: 0x2a2828 })));
+
+    // ── White edge lines ──
+    const dashMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    [ROAD_W / 2 - 0.3, -(ROAD_W / 2 - 0.3)].forEach(offset => {
+      const ePts = [];
+      for (let i = 0; i <= SEGS; i++) {
+        const t    = i / SEGS;
+        const pt   = this.shortcutCurve.getPointAt(t);
+        const tan  = this.shortcutCurve.getTangentAt(t);
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+        ePts.push(pt.clone().addScaledVector(perp, offset).setY(0.08));
+      }
+      this.group.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(ePts), SEGS, 0.1, 4, false),
+        dashMat
+      ));
+    });
+
+    // ── Center dashes ──
+    for (let i = 0; i < SEGS - 4; i += 8) {
+      const dashPts = [];
+      for (let k = 0; k <= 6; k++) {
+        const t = Math.min((i + k * 3 / 8) / SEGS, 0.9999);
+        const pt = this.shortcutCurve.getPointAt(t);
+        dashPts.push(new THREE.Vector3(pt.x, 0.08, pt.z));
+      }
+      this.group.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(dashPts), 4, 0.12, 4, false),
+        dashMat
+      ));
+    }
+
+    // ── Green arrow painted on main road at junction entry ──
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0x22ee55, side: THREE.DoubleSide });
+    const arrowBody = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 6.5), arrowMat);
+    arrowBody.rotation.x = -Math.PI / 2;
+    arrowBody.position.set(-250, 0.09, 372);
+    this.group.add(arrowBody);
+    const arrowHead = new THREE.Mesh(new THREE.PlaneGeometry(5, 4), arrowMat);
+    arrowHead.rotation.x = -Math.PI / 2;
+    arrowHead.position.set(-250, 0.09, 366.5);
+    this.group.add(arrowHead);
+
+    // ── Entry sign posts (both sides of junction) ──
+    const postMat  = new THREE.MeshLambertMaterial({ color: 0xaaaaaa });
+    const boardMat = new THREE.MeshLambertMaterial({ color: 0x158820 });
+    [-1, 1].forEach(side => {
+      const px = -250 + side * 10;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 6, 6), postMat);
+      post.position.set(px, 3, 363);
+      this.group.add(post);
+      const board = new THREE.Mesh(new THREE.BoxGeometry(6.5, 2.4, 0.28), boardMat);
+      board.position.set(px, 7.2, 363);
+      this.group.add(board);
+    });
+
+    // ── Alley buildings ──
+    this._buildAlleyBuildings();
+  }
+
+  _buildAlleyBuildings() {
+    const rng = new MiniRng(77001);
+    const MAT_COLS = [
+      0x8a8a7a, // concrete
+      0x7a6050, // brick
+      0x606878, // slate
+      0x4a6878, // glass teal
+      0x6a7850, // moss concrete
+      0x787060, // tan stone
+      0x5a5a6a, // dark concrete
+      0x6a4a40, // terracotta
+      0x505868, // blue-gray
+      0x706050, // brownstone
+    ];
+
+    const SEGS = 220;
+    let distAcc = 0;
+    let prevPt  = this.shortcutCurve.getPointAt(0);
+
+    for (let i = 1; i <= SEGS; i++) {
+      const t  = i / SEGS;
+      const pt = this.shortcutCurve.getPointAt(t);
+      distAcc += pt.distanceTo(prevPt);
+      prevPt   = pt.clone();
+
+      if (distAcc < 12) continue;
+      distAcc = 0;
+
+      const tan   = this.shortcutCurve.getTangentAt(t);
+      const perp  = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const angle = Math.atan2(tan.x, tan.z);
+
+      [-1, 1].forEach(side => {
+        const w    = rng.range(10, 20);
+        const h    = rng.range(18, 42);
+        const d    = rng.range(5, 9);
+        const dist = 6.5 + d * 0.5 + rng.range(0.5, 2.0);
+
+        const bPos = pt.clone().addScaledVector(perp, dist * side);
+        const col  = MAT_COLS[Math.floor(rng.rand() * MAT_COLS.length)];
+
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          new THREE.MeshLambertMaterial({ color: col })
+        );
+        mesh.rotation.y = angle;
+        mesh.position.set(bPos.x, h / 2, bPos.z);
+        this.group.add(mesh);
+
+        // Setback upper section on taller buildings
+        if (h > 26 && rng.rand() < 0.55) {
+          const sh = rng.range(6, 14);
+          const sw = w * rng.range(0.45, 0.70);
+          const sb = new THREE.Mesh(
+            new THREE.BoxGeometry(sw, sh, d * 0.85),
+            new THREE.MeshLambertMaterial({ color: this._adjustBrightness(col, 1.12) })
+          );
+          sb.rotation.y = angle;
+          sb.position.set(bPos.x, h + sh / 2, bPos.z);
+          this.group.add(sb);
+        }
+
+        // Rooftop water tower
+        if (rng.rand() < 0.32) {
+          const twH = rng.range(2, 5);
+          const twR = rng.range(0.7, 1.5);
+          const tw  = new THREE.Mesh(
+            new THREE.CylinderGeometry(twR * 0.8, twR, twH, 7),
+            new THREE.MeshLambertMaterial({ color: 0x7a6040 })
+          );
+          const lateralOff = rng.range(-w * 0.28, w * 0.28);
+          const perpDir = new THREE.Vector3(-Math.sin(angle), 0, -Math.cos(angle));
+          const twPos   = bPos.clone().addScaledVector(perpDir, lateralOff * 0);
+          tw.position.set(bPos.x + lateralOff * Math.cos(angle), h + twH / 2 + 0.2, bPos.z + lateralOff * Math.sin(angle));
+          this.group.add(tw);
+        }
+
+        // Dark window strips (3 rows of horizontal bands)
+        const winMat = new THREE.MeshLambertMaterial({ color: 0x1a2a3a });
+        const winRows = Math.min(6, Math.floor(h / 7));
+        for (let row = 1; row <= winRows; row++) {
+          const wy = row * (h / (winRows + 1));
+          const wStrip = new THREE.Mesh(
+            new THREE.BoxGeometry(w * 0.75, 1.6, d + 0.1),
+            winMat
+          );
+          wStrip.rotation.y = angle;
+          wStrip.position.set(bPos.x, wy, bPos.z);
+          this.group.add(wStrip);
+        }
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────
   // CLIMB
   // ─────────────────────────────────────────────
   _buildClimb() {
@@ -716,6 +962,393 @@ export class SFEnvironment {
     return (Math.min(255, Math.round(r * factor)) << 16) |
            (Math.min(255, Math.round(g * factor)) << 8) |
             Math.min(255, Math.round(b * factor));
+  }
+
+  // ─────────────────────────────────────────────
+  // SEASONAL EXTRAS
+  // ─────────────────────────────────────────────
+  _buildSeasonalExtras() {
+    if (this._season === 'spring') { this._buildFlowers(); this._buildSpringRoadSideFlowers(); }
+    if (this._season === 'fall')   this._buildLeafCarpet();
+    if (this._season === 'winter') { this._buildSnow(); this._buildWinterDecor(); }
+  }
+
+  // Spring: flowers and blossoms placed RIGHT next to the road in city sections
+  // so the player sees them as they drive through (10-22 units from road center)
+  _buildSpringRoadSideFlowers() {
+    const FLOWER_COLS = [0xff44aa, 0xffee22, 0xff88cc, 0xdd66ff, 0xff2277, 0xff8800, 0xee44cc, 0xffffff];
+    const rng = new MiniRng(20249);
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0x2a8822 });
+    const step = 0.004;
+
+    // City 1 + City 2 + roundabout approach: flowers along both road edges
+    const roadSections = [[0.20, 0.39], [0.65, 0.80], [0.80, 0.89]];
+    roadSections.forEach(([tStart, tEnd]) => {
+      for (let t = tStart; t < tEnd; t += step) {
+        if (rng.rand() > 0.55) continue; // ~55% of positions get a cluster
+        const pt   = this.curve.getPointAt(t);
+        const tan  = this.curve.getTangentAt(t);
+        const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+
+        [-1, 1].forEach(side => {
+          const offset = rng.range(10, 22) * side;
+          const base   = pt.clone().addScaledVector(perp, offset);
+
+          // 2-4 flowers per cluster
+          const count = rng.intRange(2, 4);
+          for (let k = 0; k < count; k++) {
+            const stemH = rng.range(1.5, 4.0);
+            const ox = base.x + rng.range(-2, 2);
+            const oz = base.z + rng.range(-2, 2);
+
+            const stem = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.1, 0.14, stemH, 4),
+              stemMat
+            );
+            stem.position.set(ox, pt.y + stemH / 2, oz);
+            this.group.add(stem);
+
+            const headR = rng.range(0.6, 1.4);
+            const col   = FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)];
+            const head  = new THREE.Mesh(
+              new THREE.SphereGeometry(headR, 6, 5),
+              new THREE.MeshLambertMaterial({ color: col })
+            );
+            head.position.set(ox, pt.y + stemH + headR * 0.5, oz);
+            this.group.add(head);
+          }
+        });
+      }
+    });
+  }
+
+  // Spring: flower clusters scattered across grassy valley zones
+  _buildFlowers() {
+    const FLOWER_COLS = [0xff44aa, 0xffee22, 0xffffff, 0xdd66ff, 0xff2277, 0xff8800, 0xee44cc, 0xffcc00];
+    const rng = new MiniRng(20241);
+    const stemMat = new THREE.MeshLambertMaterial({ color: 0x2d7a20 });
+
+    // Larger zones, much higher density, placed so they're visible near the road
+    const zones = [
+      // [xMin, xMax, zMin, zMax, clusterCount]
+      [-700, -140,  430, 560, 180],  // City 1 north
+      [-680,  -40, -350,-530, 160],  // City 2 south
+      [-500, -140,  200, 360, 130],  // City 1 south
+      [-280,   60, -130,-230, 110],  // City 2 north / roundabout
+      [-600,  380,  460, 640, 150],  // Marin headlands
+    ];
+
+    zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
+      for (let i = 0; i < count; i++) {
+        const cx = rng.range(xMin, xMax);
+        const cz = rng.range(zMin, zMax);
+        const clusterSize = rng.intRange(4, 9);
+
+        for (let k = 0; k < clusterSize; k++) {
+          const stemH = rng.range(2.0, 5.0);   // Much taller stems
+          const ox = cx + rng.range(-3.5, 3.5);
+          const oz = cz + rng.range(-3.5, 3.5);
+
+          const stem = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.12, 0.18, stemH, 4),
+            stemMat
+          );
+          stem.position.set(ox, stemH / 2, oz);
+          this.group.add(stem);
+
+          const headR   = rng.range(0.7, 1.6);  // Much bigger heads
+          const col     = FLOWER_COLS[Math.floor(rng.rand() * FLOWER_COLS.length)];
+          const headMat = new THREE.MeshLambertMaterial({ color: col });
+          const head    = new THREE.Mesh(new THREE.SphereGeometry(headR, 6, 5), headMat);
+          head.position.set(ox, stemH + headR * 0.5, oz);
+          this.group.add(head);
+
+          // Yellow center
+          const centerMat = new THREE.MeshLambertMaterial({ color: 0xffee00 });
+          const center    = new THREE.Mesh(new THREE.SphereGeometry(headR * 0.28, 5, 4), centerMat);
+          center.position.set(ox, stemH + headR * 0.5, oz);
+          this.group.add(center);
+        }
+      }
+    });
+
+    // Cherry blossom trees scattered through grassy areas — the most visible spring element
+    const blossomRng = new MiniRng(20248);
+    const blossomSpots = [
+      ...Array.from({ length: 18 }, () => [blossomRng.range(-680, -160), blossomRng.range(440, 550)]),
+      ...Array.from({ length: 15 }, () => [blossomRng.range(-650, -60),  blossomRng.range(-360, -520)]),
+      ...Array.from({ length: 12 }, () => [blossomRng.range(-480, -150), blossomRng.range(210, 350)]),
+      ...Array.from({ length: 10 }, () => [blossomRng.range(-280,  50),  blossomRng.range(-140, -220)]),
+    ];
+    blossomSpots.forEach(([x, z]) => this._makeBlossomTree(x, z, blossomRng));
+  }
+
+  _makeBlossomTree(x, z, rng) {
+    const trunkH = rng.range(6, 14);
+    const trunk  = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.5, trunkH, 5),
+      new THREE.MeshLambertMaterial({ color: 0x6b3a1e })
+    );
+    trunk.position.set(x, trunkH / 2, z);
+    this.group.add(trunk);
+
+    // 2-3 pink blossom canopy spheres
+    const layerCount = rng.intRange(2, 3);
+    const BLOSSOM_COLS = [0xffaacc, 0xff88bb, 0xffccdd, 0xff66aa, 0xffbbcc];
+    for (let i = 0; i < layerCount; i++) {
+      const cr  = rng.range(4, 8);
+      const col = BLOSSOM_COLS[Math.floor(rng.rand() * BLOSSOM_COLS.length)];
+      const canopy = new THREE.Mesh(
+        new THREE.SphereGeometry(cr, 7, 5),
+        new THREE.MeshLambertMaterial({ color: col })
+      );
+      const ox = rng.range(-2, 2);
+      const oz = rng.range(-2, 2);
+      canopy.position.set(x + ox, trunkH + cr * 0.55 + i * 2, z + oz);
+      this.group.add(canopy);
+    }
+  }
+
+  // Fall: colorful leaf carpet on grassy areas
+  _buildLeafCarpet() {
+    const LEAF_COLS = [0xcc3300, 0xe85500, 0xf08800, 0xd4a000, 0xaa2200, 0xe06000, 0xb84400];
+    const rng = new MiniRng(20242);
+
+    const zones = [
+      [-700, -140,  430, 560, 400],
+      [-680,  -40, -350,-530, 360],
+      [-500, -140,  200, 360, 300],
+      [-280,   60, -130,-230, 260],
+      [-600,  380,  460, 640, 340],
+    ];
+
+    zones.forEach(([xMin, xMax, zMin, zMax, count]) => {
+      for (let i = 0; i < count; i++) {
+        const w   = rng.range(1.5, 4.0);
+        const d   = rng.range(1.5, 4.0);
+        const geo = new THREE.PlaneGeometry(w, d);
+        const mat = new THREE.MeshLambertMaterial({
+          color: LEAF_COLS[Math.floor(rng.rand() * LEAF_COLS.length)],
+          side: THREE.DoubleSide,
+        });
+        const leaf = new THREE.Mesh(geo, mat);
+        leaf.rotation.x = -Math.PI / 2;
+        leaf.rotation.z = rng.range(0, Math.PI * 2);
+        leaf.position.set(rng.range(xMin, xMax), 0.04, rng.range(zMin, zMax));
+        this.group.add(leaf);
+      }
+    });
+  }
+
+  // Winter: snow ground cover
+  _buildSnow() {
+    const snowMat = new THREE.MeshLambertMaterial({ color: 0xf0f6fa });
+
+    // Snow planes matching grassy valley zones (extended)
+    const patches = [
+      [520, 130, -430,  480],
+      [480, 110, -420,  265],
+      [300,  90, -750,  430],
+      [580, 140, -210, -402],
+      [540,  90, -210, -167],
+      [400, 100, -400, -500],
+      [1400, 450,  0,   430],  // Marin snow
+      [3000, 3000, -300, 100], // background coverage
+    ];
+    patches.forEach(([w, d, x, z]) => {
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(w, d), snowMat);
+      s.rotation.x = -Math.PI / 2;
+      s.position.set(x, 0.06, z);
+      this.group.add(s);
+    });
+
+    // Snow caps on hills (small white half-spheres)
+    const rng = new MiniRng(20243);
+    for (let i = 0; i < 20; i++) {
+      const r   = rng.range(4, 10);
+      const cap = new THREE.Mesh(
+        new THREE.SphereGeometry(r, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshLambertMaterial({ color: 0xeef4f8 })
+      );
+      cap.scale.set(rng.range(1.2, 2.0), rng.range(0.2, 0.4), rng.range(1.2, 2.0));
+      cap.position.set(rng.range(-500, 300), 0.5, rng.range(-460, 600));
+      this.group.add(cap);
+    }
+  }
+
+  // Winter: Christmas trees, menorahs, candle groups, string lights
+  _buildWinterDecor() {
+    // Christmas trees along City 1 and City 2 streets
+    const ctRng = new MiniRng(20244);
+    const ctSpots = [
+      // City 1 zone
+      ...Array.from({ length: 10 }, () => [ctRng.range(-460, -200), ctRng.range(220, 520)]),
+      // City 2 zone
+      ...Array.from({ length: 8  }, () => [ctRng.range(-460, -80),  ctRng.range(-160, -440)]),
+      // Roundabout area
+      [30, -165], [80, -165], [-10, -195],
+    ];
+    ctSpots.forEach(([x, z]) => this._makeChristmasTree(x, z, ctRng));
+
+    // Menorahs — near roundabout and City 2 entrance
+    const menPositions = [
+      [60, -195], [-5, -190], [110, -200],
+      [-280, -280], [-320, -310],
+    ];
+    menPositions.forEach(([x, z]) => this._makeMenorah(x, z));
+
+    // Candle groups scattered in valleys
+    const candleRng = new MiniRng(20245);
+    for (let i = 0; i < 14; i++) {
+      const x = candleRng.range(-400, -100);
+      const z = candleRng.rand() < 0.5 ? candleRng.range(220, 510) : candleRng.range(-160, -440);
+      this._makeCandleGroup(x, z, candleRng);
+    }
+
+    // String lights between buildings in City 1 zone
+    this._buildStringLights(0.22, 0.36, 8);
+    // String lights in City 2 zone
+    this._buildStringLights(0.68, 0.78, 6);
+  }
+
+  _makeChristmasTree(x, z, rng) {
+    const h = rng.range(6, 12);
+    // 3-tier cone
+    const greens = [0x0a5c1e, 0x0d7a28, 0x0f6622];
+    for (let i = 0; i < 3; i++) {
+      const r  = (h * 0.28) * (1 - i * 0.22);
+      const ch = h * 0.40;
+      const geo = new THREE.ConeGeometry(r, ch, 8);
+      const mat = new THREE.MeshLambertMaterial({ color: greens[i % greens.length] });
+      const cone = new THREE.Mesh(geo, mat);
+      cone.position.set(x, h * 0.15 + i * ch * 0.55, z);
+      this.group.add(cone);
+    }
+    // Trunk
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.2, 0.28, h * 0.18, 5),
+      new THREE.MeshLambertMaterial({ color: 0x5c3010 })
+    );
+    trunk.position.set(x, h * 0.09, z);
+    this.group.add(trunk);
+    // Star topper
+    const star = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 5, 4),
+      new THREE.MeshLambertMaterial({ color: 0xffd700, emissive: 0xffd700, emissiveIntensity: 0.6 })
+    );
+    star.position.set(x, h * 0.97, z);
+    this.group.add(star);
+    // Colorful ornament dots
+    const ORN_COLS = [0xff2222, 0xffaa00, 0x2255ff, 0xff55aa, 0x00ccff];
+    for (let i = 0; i < 6; i++) {
+      const a  = (i / 6) * Math.PI * 2;
+      const r  = h * 0.18;
+      const oy = h * 0.3 + (i % 3) * h * 0.18;
+      const orb = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18, 5, 4),
+        new THREE.MeshLambertMaterial({ color: ORN_COLS[i % ORN_COLS.length], emissive: ORN_COLS[i % ORN_COLS.length], emissiveIntensity: 0.3 })
+      );
+      orb.position.set(x + Math.cos(a) * r, oy, z + Math.sin(a) * r);
+      this.group.add(orb);
+    }
+  }
+
+  _makeMenorah(x, z) {
+    const baseMat   = new THREE.MeshLambertMaterial({ color: 0xd4af37 });
+    const flameMat  = new THREE.MeshLambertMaterial({ color: 0xff8800, emissive: 0xff4400, emissiveIntensity: 0.8 });
+
+    // Base
+    const mBase = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 0.5), baseMat);
+    mBase.position.set(x, 0.12, z);
+    this.group.add(mBase);
+    // Central stem
+    const mStem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.5, 6), baseMat);
+    mStem.position.set(x, 1.25, z);
+    this.group.add(mStem);
+    // 8 branches (4 each side) + 1 shamash (center, taller)
+    const positions = [-1.4, -1.0, -0.6, -0.2, 0.2, 0.6, 1.0, 1.4]; // 8 candles
+    positions.forEach(ox => {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, Math.abs(ox) + 0.1, 4), baseMat);
+      arm.position.set(x + ox / 2, 1.4, z);
+      this.group.add(arm);
+      // Candle
+      const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.7, 6), new THREE.MeshLambertMaterial({ color: 0xfffff0 }));
+      candle.position.set(x + ox, 1.85, z);
+      this.group.add(candle);
+      // Flame
+      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.1, 5, 4), flameMat);
+      flame.position.set(x + ox, 2.3, z);
+      this.group.add(flame);
+    });
+    // Shamash (center tallest candle)
+    const shamash = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.9, 6), new THREE.MeshLambertMaterial({ color: 0xfffff0 }));
+    shamash.position.set(x, 2.2, z);
+    this.group.add(shamash);
+    const sFlame = new THREE.Mesh(new THREE.SphereGeometry(0.12, 5, 4), flameMat);
+    sFlame.position.set(x, 2.75, z);
+    this.group.add(sFlame);
+  }
+
+  _makeCandleGroup(x, z, rng) {
+    const CANDLE_COLS = [0xfffff0, 0xffe0e0, 0xe0e0ff, 0xffe8d0, 0xf0fff0];
+    const count = rng.intRange(2, 4);
+    for (let i = 0; i < count; i++) {
+      const ox = x + (i - count / 2) * 0.6;
+      const h  = rng.range(0.8, 1.8);
+      const candle = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.12, 0.14, h, 6),
+        new THREE.MeshLambertMaterial({ color: CANDLE_COLS[Math.floor(rng.rand() * CANDLE_COLS.length)] })
+      );
+      candle.position.set(ox, h / 2, z);
+      this.group.add(candle);
+      const flame = new THREE.Mesh(
+        new THREE.SphereGeometry(0.1, 5, 4),
+        new THREE.MeshLambertMaterial({ color: 0xff9900, emissive: 0xff4400, emissiveIntensity: 0.9 })
+      );
+      flame.position.set(ox, h + 0.12, z);
+      this.group.add(flame);
+    }
+  }
+
+  _buildStringLights(tStart, tEnd, count) {
+    const LIGHT_COLS = [0xff2222, 0xffaa00, 0x44ff44, 0x4488ff, 0xff44ff, 0x00ffff];
+    const step = (tEnd - tStart) / count;
+    for (let i = 0; i < count; i++) {
+      const t0 = tStart + i * step;
+      const t1 = Math.min(t0 + step, tEnd);
+      const p0 = this.curve.getPointAt(t0);
+      const p1 = this.curve.getPointAt(t1);
+      const tan = this.curve.getTangentAt(t0);
+      const perp = new THREE.Vector3(-tan.z, 0, tan.x).normalize();
+      const y = 8;
+
+      // Wire (thin tube)
+      const wirePts = [
+        p0.clone().addScaledVector(perp,  14).setY(y),
+        p0.clone().addScaledVector(perp, -14).setY(y),
+      ];
+      const wire = new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(wirePts), 4, 0.05, 4, false),
+        new THREE.MeshLambertMaterial({ color: 0x333333 })
+      );
+      this.group.add(wire);
+
+      // Bulbs along the wire
+      for (let b = 0; b < 10; b++) {
+        const bx = p0.x + (b / 9) * (wirePts[1].x - wirePts[0].x);
+        const bz = p0.z; // z stays same (perpendicular to road)
+        const bulb = new THREE.Mesh(
+          new THREE.SphereGeometry(0.22, 5, 4),
+          new THREE.MeshLambertMaterial({
+            color: LIGHT_COLS[b % LIGHT_COLS.length],
+            emissive: LIGHT_COLS[b % LIGHT_COLS.length],
+            emissiveIntensity: 0.7,
+          })
+        );
+        bulb.position.set(bx, y - 0.1, bz);
+        this.group.add(bulb);
+      }
+    }
   }
 
   update(dt) {
