@@ -7,6 +7,9 @@ import { NYEnvironment }  from '../world/NYEnvironment.js';
 import { CAR_DEFS }        from '../data/cars.js';
 import { MobileControls }  from '../entities/MobileControls.js';
 import { BotCar }          from '../entities/BotCar.js';
+import { getSeason, SEASON_CONFIG } from '../world/Seasons.js';
+import { BostonTrack }       from '../world/BostonTrack.js';
+import { BostonEnvironment } from '../world/BostonEnvironment.js';
 
 export class RaceScene {
   constructor(game) {
@@ -55,7 +58,9 @@ export class RaceScene {
   static get SLIGHT_OFF_DIST() { return 14; }
   static get FAR_OFF_DIST()    { return 24; }
   get RACE_TIMEOUT() {
-    return this._mapId === 'ny' ? 420 : 300; // 7 min for NY, 5 min for SF
+    if (this._mapId === 'ny')     return 420; // 7 min
+    if (this._mapId === 'boston') return 540; // 9 min
+    return 300; // 5 min SF
   }
 
   init() {
@@ -79,17 +84,34 @@ export class RaceScene {
     this._mapId = this.game.playerData.selectedMap || 'sf';
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87ceeb); // daytime sky
-    this.scene.fog = new THREE.Fog(0x87ceeb, 200, 700);
+
+    // Sky/fog per map
+    let skyColor = 0x87ceeb, fogColor = 0x87ceeb, fogNear = 200, fogFar = 700;
+    if (this._mapId === 'sf') {
+      const seasonCfg = SEASON_CONFIG[getSeason()];
+      skyColor = seasonCfg.skyColor;
+      fogColor = seasonCfg.fogColor;
+      fogNear  = seasonCfg.fogNear;
+      fogFar   = seasonCfg.fogFar;
+    } else if (this._mapId === 'boston') {
+      skyColor = 0x7090b0; fogColor = 0x7090b0; fogNear = 200; fogFar = 700;
+      this._inBosTunnel = false;
+      this._bosDefaultSky = 0x7090b0;
+    }
+    this.scene.background = new THREE.Color(skyColor);
+    this.scene.fog = new THREE.Fog(fogColor, fogNear, fogFar);
 
     this.camera = new THREE.PerspectiveCamera(
       60, window.innerWidth / window.innerHeight, 0.1, 1000
     );
     this.camera.position.set(0, 10, 20);
 
-    // Lighting
-    this.scene.add(new THREE.AmbientLight(0xfff0dd, 1.6));
-    const sun = new THREE.DirectionalLight(0xffeedd, 1.2);
+    // Lighting — season-tinted on SF map
+    this.scene.add(new THREE.AmbientLight(
+      seasonCfg ? seasonCfg.ambientColor     : 0xfff0dd,
+      seasonCfg ? seasonCfg.ambientIntensity : 1.6
+    ));
+    const sun = new THREE.DirectionalLight(seasonCfg ? seasonCfg.sunColor : 0xffeedd, 1.2);
     sun.position.set(100, 150, 80);
     sun.castShadow = true;
     sun.shadow.mapSize.width  = 2048;
@@ -112,6 +134,9 @@ export class RaceScene {
     if (this._mapId === 'ny') {
       this.track = new NYTrack(this.scene);
       this.env   = new NYEnvironment(this.scene, this.track);
+    } else if (this._mapId === 'boston') {
+      this.track = new BostonTrack(this.scene);
+      this.env   = new BostonEnvironment(this.scene, this.track);
     } else {
       this.track = new Track(this.scene);
       this.env   = new SFEnvironment(this.scene, this.track);
@@ -343,18 +368,23 @@ export class RaceScene {
       this._offTrackCooldown = Math.max(0, this._offTrackCooldown - dt);
 
       if (distFromTrack > RaceScene.FAR_OFF_DIST && this._offTrackCooldown <= 0) {
-        // Apply +2 second penalty
-        this._penaltySeconds += 2;
-        this._offTrackCooldown = 4; // 4-second grace before next reset
+        if (this._isOnShortcut(this.car.position)) {
+          // On the shortcut alley — no penalty, brief cooldown to avoid repeated checks
+          this._offTrackCooldown = 1;
+        } else {
+          // Apply +2 second penalty
+          this._penaltySeconds += 2;
+          this._offTrackCooldown = 4; // 4-second grace before next reset
 
-        // Reset car to nearest track point, facing track direction
-        const tan = this.track.curve.getTangentAt(nearT);
-        this.car.speed *= 0.2;
-        this.car.position.set(trackPt.x, trackPt.y, trackPt.z);
-        this.car.mesh.position.copy(this.car.position);
-        this.car.angle = Math.atan2(tan.x, tan.z);
+          // Reset car to nearest track point, facing track direction
+          const tan = this.track.curve.getTangentAt(nearT);
+          this.car.speed *= 0.2;
+          this.car.position.set(trackPt.x, trackPt.y, trackPt.z);
+          this.car.mesh.position.copy(this.car.position);
+          this.car.angle = Math.atan2(tan.x, tan.z);
 
-        this._showPenaltyFlash();
+          this._showPenaltyFlash();
+        }
       }
     }
 
@@ -454,7 +484,24 @@ export class RaceScene {
       setTimeout(() => this.game.setState('results'), 2000);
     }
 
-    // ── Trolley update ──
+    // ── Boston tunnel underwater effect ──
+    if (this._mapId === 'boston' && this.scene) {
+      if (this._accProgress > 0.85) {
+        if (!this._inBosTunnel) {
+          this._inBosTunnel = true;
+          this.scene.background = new THREE.Color(0x061828);
+          this.scene.fog = new THREE.Fog(0x061828, 25, 180);
+        }
+      } else {
+        if (this._inBosTunnel) {
+          this._inBosTunnel = false;
+          this.scene.background = new THREE.Color(this._bosDefaultSky);
+          this.scene.fog = new THREE.Fog(this._bosDefaultSky, 200, 700);
+        }
+      }
+    }
+
+    // ── Environment update ──
     this.env.update(dt);
 
     // ── Chase camera ──
@@ -484,6 +531,20 @@ export class RaceScene {
     if (speedEl)    speedEl.textContent    = car.kmh;
     if (progressEl) progressEl.style.width = `${Math.min(this._accProgress, 1) * 100}%`;
     if (timerEl)    timerEl.textContent    = this._raceStarted ? this._formatTime(this._raceTime) : '0:00.000';
+  }
+
+  // Returns true if pos is within 15 units of the SF shortcut road center line.
+  _isOnShortcut(pos) {
+    if (!this.env || !this.env.shortcutCurve) return false;
+    const SAMPLES = 80;
+    const R2 = 15 * 15;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const pt = this.env.shortcutCurve.getPointAt(i / SAMPLES);
+      const dx = pos.x - pt.x;
+      const dz = pos.z - pt.z;
+      if (dx * dx + dz * dz < R2) return true;
+    }
+    return false;
   }
 
   _showPenaltyFlash() {

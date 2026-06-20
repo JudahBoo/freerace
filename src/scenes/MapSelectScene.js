@@ -9,11 +9,12 @@ export class MapSelectScene {
     this.el.className = 'screen';
     this.el.style.overflowY = 'auto';
 
-    const sfPreview = this._drawSFPreview();
-    const nyPreview = this._drawNYPreview();
+    const sfPreview     = this._drawSFPreview();
+    const nyPreview     = this._drawNYPreview();
+    const bostonPreview = this._drawBostonPreview();
 
     this.el.innerHTML = `
-      <div style="text-align:center;padding:40px 20px;max-width:720px;width:100%;">
+      <div style="text-align:center;padding:40px 20px;max-width:960px;width:100%;">
         <div class="panel-title" style="justify-content:center;font-size:2rem;margin-bottom:8px">
           Select a Track
         </div>
@@ -21,7 +22,7 @@ export class MapSelectScene {
           Choose your race course
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:32px;">
           <!-- SF Card -->
           <div class="map-card" id="card-sf" style="
             cursor:pointer;border:2px solid rgba(255,255,255,0.1);border-radius:12px;
@@ -59,6 +60,25 @@ export class MapSelectScene {
               </div>
             </div>
           </div>
+
+          <!-- Boston Card -->
+          <div class="map-card" id="card-boston" style="
+            cursor:pointer;border:2px solid rgba(255,255,255,0.1);border-radius:12px;
+            overflow:hidden;transition:border-color 0.2s, transform 0.15s;
+            background:rgba(20,25,35,0.8);
+          ">
+            <div style="width:100%;aspect-ratio:16/10;overflow:hidden;">
+              <img src="${bostonPreview}" style="width:100%;height:100%;object-fit:cover;" alt="Boston">
+            </div>
+            <div style="padding:16px;">
+              <div style="font-size:1.1rem;font-weight:700;letter-spacing:2px;margin-bottom:4px;">
+                Boston
+              </div>
+              <div style="color:var(--muted);font-size:0.75rem;letter-spacing:1px;">
+                Harbor · Mountain Loop · Underwater Tunnel · 9 min
+              </div>
+            </div>
+          </div>
         </div>
 
         <button class="btn btn-ghost" id="btn-back">&#8592; Back to Menu</button>
@@ -86,6 +106,11 @@ export class MapSelectScene {
 
     this.el.querySelector('#card-ny').addEventListener('click', () => {
       this.game.playerData.selectedMap = 'ny';
+      this.game.setState('race');
+    });
+
+    this.el.querySelector('#card-boston').addEventListener('click', () => {
+      this.game.playerData.selectedMap = 'boston';
       this.game.setState('race');
     });
 
@@ -220,6 +245,95 @@ export class MapSelectScene {
     ctx.fillStyle = '#777777';
     ctx.fillRect(80, 120, 10, 80);
     ctx.fillRect(230, 120, 10, 80);
+
+    return c.toDataURL();
+  }
+
+  _drawBostonPreview() {
+    const c = document.createElement('canvas');
+    c.width = 320; c.height = 200;
+    const ctx = c.getContext('2d');
+
+    // Sky
+    const skyGrd = ctx.createLinearGradient(0, 0, 0, 100);
+    skyGrd.addColorStop(0, '#4a6a90');
+    skyGrd.addColorStop(1, '#7090b8');
+    ctx.fillStyle = skyGrd;
+    ctx.fillRect(0, 0, 320, 100);
+
+    // Skyline buildings
+    const bldgs = [[20,40,30,80],[55,35,25,85],[85,25,35,95],[125,30,30,90],[160,20,28,100],[195,28,32,92],[232,38,25,82],[262,30,30,90],[297,42,22,78]];
+    bldgs.forEach(([x, w, y, h]) => {
+      ctx.fillStyle = '#334455';
+      ctx.fillRect(x, y, w, 100 - y);
+      ctx.fillStyle = '#445566aa';
+      for (let r = 0; r < 4; r++) {
+        for (let c2 = 0; c2 < 3; c2++) {
+          if (Math.random() > 0.4) {
+            ctx.fillStyle = '#ffffaa66';
+            ctx.fillRect(x + 3 + c2 * 8, y + 4 + r * 14, 5, 8);
+          }
+        }
+      }
+    });
+
+    // Park (green)
+    ctx.fillStyle = '#4a8a3a';
+    ctx.fillRect(0, 100, 100, 60);
+    // Lake
+    ctx.fillStyle = '#1a5a9a';
+    ctx.beginPath();
+    ctx.ellipse(50, 130, 28, 20, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Harbor (dark water)
+    ctx.fillStyle = '#0a1830';
+    ctx.fillRect(100, 110, 220, 90);
+    // Wave lines
+    ctx.strokeStyle = '#1a3a6a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(100, 125 + i * 14);
+      ctx.lineTo(320, 125 + i * 14);
+      ctx.stroke();
+    }
+
+    // Cargo ship
+    ctx.fillStyle = '#882222';
+    ctx.fillRect(170, 128, 60, 12);
+    ctx.fillStyle = '#334455';
+    ctx.fillRect(172, 120, 56, 10);
+    ctx.fillStyle = '#dd4422';
+    ctx.fillRect(178, 112, 14, 10);
+    ctx.fillStyle = '#2244cc';
+    ctx.fillRect(196, 112, 14, 10);
+    ctx.fillStyle = '#44aa22';
+    ctx.fillRect(214, 112, 14, 10);
+
+    // Road
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(0, 155, 260, 25);
+    // Tunnel entrance
+    ctx.fillStyle = '#555555';
+    ctx.fillRect(258, 148, 62, 52);
+    ctx.fillStyle = '#0a1830';
+    ctx.fillRect(264, 154, 50, 46);
+    // Tunnel arch
+    ctx.strokeStyle = '#777777';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(289, 154, 25, Math.PI, 0);
+    ctx.stroke();
+
+    // Center line on road
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(0, 167); ctx.lineTo(260, 167);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     return c.toDataURL();
   }
