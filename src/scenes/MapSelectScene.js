@@ -254,86 +254,149 @@ export class MapSelectScene {
     c.width = 320; c.height = 200;
     const ctx = c.getContext('2d');
 
-    // Sky
-    const skyGrd = ctx.createLinearGradient(0, 0, 0, 100);
-    skyGrd.addColorStop(0, '#4a6a90');
-    skyGrd.addColorStop(1, '#7090b8');
-    ctx.fillStyle = skyGrd;
-    ctx.fillRect(0, 0, 320, 100);
+    // Deep ocean background (underwater tunnel view)
+    const oceanGrd = ctx.createLinearGradient(0, 0, 0, 200);
+    oceanGrd.addColorStop(0, '#061828');
+    oceanGrd.addColorStop(0.5, '#0a2540');
+    oceanGrd.addColorStop(1, '#061020');
+    ctx.fillStyle = oceanGrd;
+    ctx.fillRect(0, 0, 320, 200);
 
-    // Skyline buildings
-    const bldgs = [[20,40,30,80],[55,35,25,85],[85,25,35,95],[125,30,30,90],[160,20,28,100],[195,28,32,92],[232,38,25,82],[262,30,30,90],[297,42,22,78]];
-    bldgs.forEach(([x, w, y, h]) => {
-      ctx.fillStyle = '#334455';
-      ctx.fillRect(x, y, w, 100 - y);
-      ctx.fillStyle = '#445566aa';
-      for (let r = 0; r < 4; r++) {
-        for (let c2 = 0; c2 < 3; c2++) {
-          if (Math.random() > 0.4) {
-            ctx.fillStyle = '#ffffaa66';
-            ctx.fillRect(x + 3 + c2 * 8, y + 4 + r * 14, 5, 8);
-          }
-        }
-      }
-    });
-
-    // Park (green)
-    ctx.fillStyle = '#4a8a3a';
-    ctx.fillRect(0, 100, 100, 60);
-    // Lake
-    ctx.fillStyle = '#1a5a9a';
+    // Tunnel walls (perspective — narrowing into distance)
+    ctx.fillStyle = '#1a2a2a';
+    // Left wall
     ctx.beginPath();
-    ctx.ellipse(50, 130, 28, 20, 0, 0, Math.PI * 2);
+    ctx.moveTo(0, 0); ctx.lineTo(120, 60); ctx.lineTo(120, 140); ctx.lineTo(0, 200);
+    ctx.fill();
+    // Right wall
+    ctx.beginPath();
+    ctx.moveTo(320, 0); ctx.lineTo(200, 60); ctx.lineTo(200, 140); ctx.lineTo(320, 200);
+    ctx.fill();
+    // Ceiling
+    ctx.beginPath();
+    ctx.moveTo(0, 0); ctx.lineTo(320, 0); ctx.lineTo(200, 60); ctx.lineTo(120, 60);
+    ctx.fill();
+    // Floor (road)
+    ctx.fillStyle = '#111a1a';
+    ctx.beginPath();
+    ctx.moveTo(0, 200); ctx.lineTo(320, 200); ctx.lineTo(200, 140); ctx.lineTo(120, 140);
     ctx.fill();
 
-    // Harbor (dark water)
-    ctx.fillStyle = '#0a1830';
-    ctx.fillRect(100, 110, 220, 90);
-    // Wave lines
-    ctx.strokeStyle = '#1a3a6a';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.moveTo(100, 125 + i * 14);
-      ctx.lineTo(320, 125 + i * 14);
-      ctx.stroke();
-    }
-
-    // Cargo ship
-    ctx.fillStyle = '#882222';
-    ctx.fillRect(170, 128, 60, 12);
-    ctx.fillStyle = '#334455';
-    ctx.fillRect(172, 120, 56, 10);
-    ctx.fillStyle = '#dd4422';
-    ctx.fillRect(178, 112, 14, 10);
-    ctx.fillStyle = '#2244cc';
-    ctx.fillRect(196, 112, 14, 10);
-    ctx.fillStyle = '#44aa22';
-    ctx.fillRect(214, 112, 14, 10);
-
-    // Road
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(0, 155, 260, 25);
-    // Tunnel entrance
-    ctx.fillStyle = '#555555';
-    ctx.fillRect(258, 148, 62, 52);
-    ctx.fillStyle = '#0a1830';
-    ctx.fillRect(264, 154, 50, 46);
-    // Tunnel arch
-    ctx.strokeStyle = '#777777';
+    // Tunnel ribs (structural rings)
+    ctx.strokeStyle = '#2a4444';
     ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(289, 154, 25, Math.PI, 0);
-    ctx.stroke();
+    [[120,60,200,60,200,140,120,140], [95,35,225,35,225,165,95,165]].forEach(([lx,ly,rx,ry,rb,rm,lb,lm]) => {
+      ctx.beginPath();
+      ctx.moveTo(0,0); // reset
+    });
+    // Draw 3 rib lines
+    [[120,60,200,140,5], [95,38,225,162,3], [108,50,212,150,4]].forEach(([lx,ly,rx,ry,lw]) => {
+      ctx.strokeStyle = lw===5 ? '#334444' : '#253535';
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(lx, ly); ctx.lineTo(lx, ry);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(rx, ly); ctx.lineTo(rx, ry);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(lx, ly); ctx.lineTo(rx, ly);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(lx, ry); ctx.lineTo(rx, ry);
+      ctx.stroke();
+    });
 
-    // Center line on road
+    // Road center line (perspective)
     ctx.strokeStyle = '#ffff00';
     ctx.lineWidth = 2;
     ctx.setLineDash([8, 6]);
     ctx.beginPath();
-    ctx.moveTo(0, 167); ctx.lineTo(260, 167);
+    ctx.moveTo(160, 140); ctx.lineTo(160, 200);
     ctx.stroke();
     ctx.setLineDash([]);
+
+    // Tunnel exit glow (light at end of tunnel)
+    const glowGrd = ctx.createRadialGradient(160, 100, 5, 160, 100, 45);
+    glowGrd.addColorStop(0, 'rgba(100,200,255,0.9)');
+    glowGrd.addColorStop(0.4, 'rgba(60,140,200,0.5)');
+    glowGrd.addColorStop(1, 'rgba(0,20,50,0)');
+    ctx.fillStyle = glowGrd;
+    ctx.fillRect(115, 55, 90, 90);
+
+    // Ceiling lights
+    const lightPositions = [[130,62],[160,60],[190,62]];
+    lightPositions.forEach(([lx,ly]) => {
+      const lg = ctx.createRadialGradient(lx, ly, 1, lx, ly+8, 18);
+      lg.addColorStop(0, 'rgba(255,255,200,0.95)');
+      lg.addColorStop(1, 'rgba(255,255,150,0)');
+      ctx.fillStyle = lg;
+      ctx.fillRect(lx-18, ly, 36, 36);
+      ctx.fillStyle = '#ffffc8';
+      ctx.beginPath();
+      ctx.arc(lx, ly, 3, 0, Math.PI*2);
+      ctx.fill();
+    });
+
+    // Fish swimming
+    const fishData = [
+      [55, 70, '#ff6633', 1],
+      [260, 90, '#33aaff', -1],
+      [80, 150, '#ffcc33', 1],
+      [240, 155, '#ff44aa', -1],
+      [50, 110, '#44ffaa', 1],
+    ];
+    fishData.forEach(([fx, fy, col, dir]) => {
+      ctx.fillStyle = col;
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.scale(dir, 1);
+      // Body
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 10, 5, 0, 0, Math.PI*2);
+      ctx.fill();
+      // Tail
+      ctx.beginPath();
+      ctx.moveTo(10, 0); ctx.lineTo(16, -5); ctx.lineTo(16, 5); ctx.closePath();
+      ctx.fill();
+      // Eye
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(-5, -1, 1.5, 0, Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Jellyfish
+    ctx.fillStyle = 'rgba(180,100,255,0.6)';
+    ctx.beginPath(); ctx.arc(30, 40, 10, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = 'rgba(180,100,255,0.4)';
+    ctx.lineWidth = 1;
+    for (let i = -3; i <= 3; i++) {
+      ctx.beginPath(); ctx.moveTo(30+i*3, 40); ctx.lineTo(30+i*2, 55); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(180,100,255,0.5)';
+    ctx.beginPath(); ctx.arc(285, 55, 8, Math.PI, 0); ctx.fill();
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath(); ctx.moveTo(285+i*3, 55); ctx.lineTo(285+i*2, 67); ctx.stroke();
+    }
+
+    // Water caustic shimmer lines
+    ctx.strokeStyle = 'rgba(100,200,255,0.15)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i*40, 0);
+      ctx.bezierCurveTo(i*40+20, 30, i*40+10, 60, i*40+30, 90);
+      ctx.stroke();
+    }
+
+    // "UNDERWATER TUNNEL" label
+    ctx.fillStyle = 'rgba(100,200,255,0.9)';
+    ctx.font = 'bold 11px monospace';
+    ctx.textAlign = 'center';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('UNDERWATER TUNNEL', 160, 185);
 
     return c.toDataURL();
   }
