@@ -86,9 +86,10 @@ export class RaceScene {
     this.scene = new THREE.Scene();
 
     // Sky/fog per map
+    let seasonCfg = null;
     let skyColor = 0x87ceeb, fogColor = 0x87ceeb, fogNear = 200, fogFar = 700;
     if (this._mapId === 'sf') {
-      const seasonCfg = SEASON_CONFIG[getSeason()];
+      seasonCfg = SEASON_CONFIG[getSeason()];
       skyColor = seasonCfg.skyColor;
       fogColor = seasonCfg.fogColor;
       fogNear  = seasonCfg.fogNear;
